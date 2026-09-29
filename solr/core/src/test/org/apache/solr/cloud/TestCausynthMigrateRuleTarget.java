@@ -58,9 +58,19 @@ public class TestCausynthMigrateRuleTarget extends SolrCloudTestCase {
   @Test
   public void updateAfterRuleExpiryAndTargetDeletion() throws Exception {
     CloudSolrClient client = cluster.getSolrClient();
-    CollectionAdminRequest.createCollection(SOURCE, "conf", 1, 2).process(client);
-    CollectionAdminRequest.createCollection(TARGET, "conf", 1, 1).process(client);
+    // The roles are the workload's, not the cluster's random choice: the
+    // source's leader is the replica created alone on the first node, its
+    // second replica joins on the other one, and so does the target.
+    String first = cluster.getJettySolrRunner(0).getNodeName();
+    String second = cluster.getJettySolrRunner(1).getNodeName();
+    CollectionAdminRequest.createCollection(SOURCE, "conf", 1, 1)
+        .setCreateNodeSet(first).process(client);
+    cluster.waitForActiveCollection(SOURCE, 1, 1);
+    CollectionAdminRequest.addReplicaToShard(SOURCE, "shard1").setNode(second)
+        .process(client);
     cluster.waitForActiveCollection(SOURCE, 1, 2);
+    CollectionAdminRequest.createCollection(TARGET, "conf", 1, 1)
+        .setCreateNodeSet(second).process(client);
     cluster.waitForActiveCollection(TARGET, 1, 1);
 
     client.add(SOURCE, new SolrInputDocument("id", "a!1"));

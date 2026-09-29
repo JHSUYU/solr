@@ -67,15 +67,25 @@ public class TestCausynthPullReplicaReservation extends SolrCloudTestCase {
   @Test
   public void pullReplicaFetchesAcrossALeaderCommit() throws Exception {
     CloudSolrClient client = cluster.getSolrClient();
-    CollectionAdminRequest.createCollection(COLLECTION, "conf", 1, 1, 0, 1)
+    // The roles are the workload's: the leader alone on the first node, the
+    // PULL follower added on the other one.
+    CollectionAdminRequest.createCollection(COLLECTION, "conf", 1, 1)
+        .setCreateNodeSet(cluster.getJettySolrRunner(0).getNodeName())
         .process(client);
+    cluster.waitForActiveCollection(COLLECTION, 1, 1);
+    CollectionAdminRequest.addReplicaToShard(COLLECTION, "shard1", Replica.Type.PULL)
+        .setNode(cluster.getJettySolrRunner(1).getNodeName()).process(client);
     cluster.waitForActiveCollection(COLLECTION, 1, 2);
+    Replica leader = getCollectionState(COLLECTION).getSlice("shard1").getLeader();
     Replica pull = getCollectionState(COLLECTION).getSlice("shard1")
         .getReplicas(r -> r.getType() == Replica.Type.PULL).get(0);
+    // The follower fetches when this workload says so, and only then: its
+    // timer is the node's ReplicateFromLeader, stopped here.
+    cluster.getJettySolrRunner(1).getCoreContainer().getZkController()
+        .stopReplicationFromLeader(pull.getCoreName());
+    String leaderUrl = leader.getCoreUrl().replaceAll("/+$", "");
 
     try (HttpSolrClient follower = getHttpSolrClient(pull.getCoreUrl())) {
-      // The follower fetches when this workload says so, and only then.
-      replication(follower, "disablepoll");
       int id = 0;
       for (int commit = 0; commit < COMMITS; commit++) {
         id = index(client, id);
@@ -95,7 +105,7 @@ public class TestCausynthPullReplicaReservation extends SolrCloudTestCase {
         return true;
       };
       try {
-        replication(follower, "fetchindex");
+        replication(follower, "fetchindex", leaderUrl);
         assertTrue("the follower listed G", listed.await(60, TimeUnit.SECONDS));
         // G+1 while the follower holds filelist(G): the leader's deletion
         // policy asks to delete G, and G's reservation keeps it.
@@ -128,9 +138,11 @@ public class TestCausynthPullReplicaReservation extends SolrCloudTestCase {
     return id;
   }
 
-  private static void replication(HttpSolrClient core, String command) throws Exception {
+  private static void replication(HttpSolrClient core, String command, String leaderUrl)
+      throws Exception {
     ModifiableSolrParams params = new ModifiableSolrParams();
     params.set("command", command);
+    params.set(ReplicationHandler.LEADER_URL, leaderUrl);
     QueryRequest request = new QueryRequest(params);
     request.setPath("/replication");
     request.process(core);
