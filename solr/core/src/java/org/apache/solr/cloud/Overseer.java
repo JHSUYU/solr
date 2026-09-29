@@ -170,6 +170,8 @@ public class Overseer implements SolrCloseable {
       try {
         ZkStateWriter zkStateWriter = null;
         ClusterState clusterState = null;
+        // GraphChecker: the scope of the last state message processed.
+        Object causynthLastTurn = null;
         boolean refreshClusterState = true; // let's refresh in the first iteration
         // we write updates in batch, but if an exception is thrown when writing new clusterstate,
         // we do not sure which message is bad message, therefore we will re-process node one by one
@@ -283,6 +285,7 @@ public class Overseer implements SolrCloseable {
                     stateUpdateQueue.remove(processedNodes);
                     processedNodes.clear();
                   });
+                  causynthLastTurn = MessageDoors.captureScope();
                 } finally {
                   MessageDoors.endTick(causynthTick);
                 }
@@ -294,7 +297,14 @@ public class Overseer implements SolrCloseable {
             fallbackQueueSize = processedNodes.size();
             // we should force write all pending updates because the next iteration might sleep until there
             // are more items in the main queue
-            clusterState = zkStateWriter.writePendingUpdates();
+            // GraphChecker: a batch's writes are its last message's, whose turn they end.
+            long causynthFlush = MessageDoors.enterCarriedScope(causynthLastTurn,
+                "OVERSEER_STATE_UPDATE", "flush");
+            try {
+              clusterState = zkStateWriter.writePendingUpdates();
+            } finally {
+              MessageDoors.exitCarriedScope(causynthFlush);
+            }
             // clean work queue
             stateUpdateQueue.remove(processedNodes);
             processedNodes.clear();

@@ -1696,7 +1696,12 @@ public abstract class CollectionAdminRequest<T extends CollectionAdminResponse> 
      */
     public RequestStatusState waitFor(SolrClient client, long timeoutSeconds)
         throws IOException, SolrServerException, InterruptedException {
-      long finishTime = System.nanoTime() + TimeUnit.SECONDS.toNanos(timeoutSeconds);
+      // GraphChecker: a workload of an automatic cluster waits without its
+      // bound, which is sized for a native run, not for a replay held to a
+      // recorded order.
+      long bound = Boolean.getBoolean("causynth.cluster.automatic")
+          ? TimeUnit.HOURS.toSeconds(6) : timeoutSeconds;
+      long finishTime = System.nanoTime() + TimeUnit.SECONDS.toNanos(bound);
       RequestStatusState state = RequestStatusState.NOT_FOUND;
       while (System.nanoTime() < finishTime) {
         state = this.process(client).getRequestStatus();
