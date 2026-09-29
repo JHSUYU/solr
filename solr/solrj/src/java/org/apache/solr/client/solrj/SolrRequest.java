@@ -16,6 +16,8 @@
  */
 package org.apache.solr.client.solrj;
 
+import edu.uva.liftlab.graphchecker.runtime.MessageDoors;
+
 import java.io.IOException;
 import java.io.Serializable;
 import java.security.Principal;
@@ -220,12 +222,29 @@ public abstract class SolrRequest<T extends SolrResponse> implements Serializabl
    * @throws IOException if there is a communication error
    */
   public final T process(SolrClient client, String collection) throws SolrServerException, IOException {
-    long startNanos = System.nanoTime();
-    T res = createResponse(client);
-    res.setResponse(client.request(this, collection));
-    long endNanos = System.nanoTime();
-    res.setElapsedTime(TimeUnit.NANOSECONDS.toMillis(endNanos - startNanos));
-    return res;
+    // GraphChecker: a call the workload itself makes is a request root of its
+    // own, counted per api, so a test's polling does not move its later calls.
+    String causynthApi = causynthApi();
+    long causynthCall = MessageDoors.beginWorkloadCall(causynthApi);
+    try {
+      long startNanos = System.nanoTime();
+      T res = createResponse(client);
+      res.setResponse(client.request(this, collection));
+      long endNanos = System.nanoTime();
+      res.setElapsedTime(TimeUnit.NANOSECONDS.toMillis(endNanos - startNanos));
+      return res;
+    } finally {
+      MessageDoors.endWorkloadCall(causynthCall, causynthApi);
+    }
+  }
+
+  /** The request's path, and an admin request's action: what it asks for. */
+  private String causynthApi() {
+    String path = getPath() == null ? "" : getPath();
+    SolrParams params = getParams();
+    String action = params == null ? null : params.get("action");
+    String api = path + (action == null ? "" : ":" + action);
+    return api.replace('/', '.').replace('#', '.');
   }
 
   /**

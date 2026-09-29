@@ -523,6 +523,9 @@ public class IndexFetcher {
       log.info("Starting replication process");
       // get the list of files first
       fetchFileList(latestGeneration);
+      // The test hook upstream added here (apache/solr#4820), without its fix:
+      // a workload holds the follower between filelist(G) and filecontent(G).
+      assert testWait.getAsBoolean();
       // this can happen if the commit point is deleted before we fetch the file list.
       if (filesToDownload.isEmpty()) {
         return IndexFetchResult.PEER_INDEX_COMMIT_DELETED;
