@@ -63,6 +63,7 @@ import org.apache.solr.common.cloud.ZkNodeProps;
 import org.apache.solr.common.cloud.ZkStateReader;
 import org.apache.solr.common.params.CollectionAdminParams;
 import org.apache.solr.common.params.CollectionParams;
+import org.apache.solr.common.util.CausynthBounds;
 import org.apache.solr.common.util.IOUtils;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.common.util.ObjectReleaseTracker;
@@ -283,7 +284,7 @@ public class Overseer implements SolrCloseable {
                   // in its own turn, so a node's watch callback that reads the
                   // version it wrote has that message for its cause.
                   clusterState = processQueueItem(message, clusterState, zkStateWriter,
-                      !Boolean.getBoolean("causynth.cluster.automatic"), () -> {
+                      !CausynthBounds.automatic(), () -> {
                     stateUpdateQueue.remove(processedNodes);
                     processedNodes.clear();
                   });

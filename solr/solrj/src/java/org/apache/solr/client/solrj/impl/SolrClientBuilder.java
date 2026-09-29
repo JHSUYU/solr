@@ -19,13 +19,14 @@ package org.apache.solr.client.solrj.impl;
 import org.apache.http.client.HttpClient;
 import org.apache.solr.client.solrj.ResponseParser;
 import org.apache.solr.client.solrj.impl.HttpSolrClient.Builder;
+import org.apache.solr.common.util.CausynthBounds;
 
 public abstract class SolrClientBuilder<B extends SolrClientBuilder<B>> {
 
   protected HttpClient httpClient;
   protected ResponseParser responseParser;
-  protected Integer connectionTimeoutMillis = 15000;
-  protected Integer socketTimeoutMillis = 120000;
+  protected Integer connectionTimeoutMillis = CausynthBounds.millis(15000);
+  protected Integer socketTimeoutMillis = CausynthBounds.millis(120000);
 
   /** The solution for the unchecked cast warning. */
   public abstract B getThis();

@@ -20,6 +20,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
 
+import org.apache.solr.common.util.CausynthBounds;
 import org.apache.solr.common.util.TimeSource;
 
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -32,7 +33,7 @@ public class TimeOut {
   public TimeOut(long interval, TimeUnit unit, TimeSource timeSource) {
     this.timeSource = timeSource;
     startTime = timeSource.getTimeNs();
-    this.timeoutAt = startTime + NANOSECONDS.convert(interval, unit);
+    this.timeoutAt = startTime + NANOSECONDS.convert(CausynthBounds.of(interval, unit), unit);
   }
 
   public boolean hasTimedOut() {

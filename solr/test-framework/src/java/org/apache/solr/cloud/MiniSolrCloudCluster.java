@@ -65,6 +65,7 @@ import org.apache.solr.common.cloud.Slice;
 import org.apache.solr.common.cloud.SolrZkClient;
 import org.apache.solr.common.cloud.ZkConfigManager;
 import org.apache.solr.common.cloud.ZkStateReader;
+import org.apache.solr.common.util.CausynthBounds;
 import org.apache.solr.common.util.ExecutorUtil;
 import org.apache.solr.common.util.IOUtils;
 import org.apache.solr.common.util.SolrNamedThreadFactory;
@@ -277,17 +278,17 @@ public class MiniSolrCloudCluster {
     if (!externalZkServer) {
       Path zkDir = baseDir.resolve("zookeeper/server1/data");
       zkTestServer = new ZkTestServer(zkDir);
-      if (CausynthSolrCluster.automatic()) CausynthSolrCluster.configure(zkTestServer);
+      if (CausynthBounds.automatic()) CausynthSolrCluster.configure(zkTestServer);
       try {
         zkTestServer.run();
       } catch (Exception e) {
         log.error("Error starting Zk Test Server, trying again ...");
         zkTestServer.shutdown();
         zkTestServer = new ZkTestServer(zkDir);
-        if (CausynthSolrCluster.automatic()) CausynthSolrCluster.configure(zkTestServer);
+        if (CausynthBounds.automatic()) CausynthSolrCluster.configure(zkTestServer);
         zkTestServer.run();
       }
-    } else if (CausynthSolrCluster.automatic()) {
+    } else if (CausynthBounds.automatic()) {
       CausynthSolrCluster.configure(null);
     }
     this.zkServer = zkTestServer;
@@ -308,7 +309,7 @@ public class MiniSolrCloudCluster {
     }
 
     // GraphChecker: the nodes come up in turn, so the first is the Overseer in every run.
-    final ExecutorService executorLauncher = CausynthSolrCluster.automatic()
+    final ExecutorService executorLauncher = CausynthBounds.automatic()
         ? ExecutorUtil.newMDCAwareSingleThreadExecutor(new SolrNamedThreadFactory("jetty-launcher"))
         : ExecutorUtil.newMDCAwareCachedThreadPool(new SolrNamedThreadFactory("jetty-launcher"));
     Collection<Future<JettySolrRunner>> futures = executorLauncher.invokeAll(startups);
@@ -329,7 +330,7 @@ public class MiniSolrCloudCluster {
     if (numServers > 0) {
       waitForAllNodes(numServers, 60);
     }
-    if (CausynthSolrCluster.automatic()) {
+    if (CausynthBounds.automatic()) {
       CausynthSolrCluster.registerAutomatically(this);
     }
   }
@@ -485,7 +486,7 @@ public class MiniSolrCloudCluster {
     Path runnerPath = createInstancePath(name);
     String context = getHostContextSuitableForServletContext(hostContext);
     JettyConfig.Builder builder = JettyConfig.builder(config).setContext(context);
-    if (CausynthSolrCluster.automatic() && config.port == 0) {
+    if (CausynthBounds.automatic() && config.port == 0) {
       builder.setPort(CausynthSolrCluster.nextPort());
     }
     JettyConfig newConfig = builder.build();
@@ -494,7 +495,7 @@ public class MiniSolrCloudCluster {
       : new JettySolrRunnerWithMetrics(runnerPath.toString(), nodeProps, newConfig);
     jetty.start();
     jettys.add(jetty);
-    if (CausynthSolrCluster.automatic()) {
+    if (CausynthBounds.automatic()) {
       CausynthSolrCluster.registerStartedNodes(this);
     }
     return jetty;
@@ -633,7 +634,7 @@ public class MiniSolrCloudCluster {
    * Shut down the cluster, including all Solr nodes and ZooKeeper
    */
   public void shutdown() throws Exception {
-    if (CausynthSolrCluster.automatic()) {
+    if (CausynthBounds.automatic()) {
       CausynthSolrCluster.shutdownAutomatically(this);
     }
     try {
@@ -674,7 +675,7 @@ public class MiniSolrCloudCluster {
     return new Builder(Collections.singletonList(getZkServer().getZkAddress()), Optional.empty())
         // we choose 90 because we run in some harsh envs; an automatic cluster's
         // client never times out (CausynthSolrCluster#configure)
-        .withSocketTimeout(CausynthSolrCluster.automatic() ? CausynthSolrCluster.NEVER_MS : 90000)
+        .withSocketTimeout(CausynthBounds.millis(90000))
         .withConnectionTimeout(15000).build();
   }
 

@@ -61,6 +61,7 @@ import org.apache.http.protocol.HttpRequestExecutor;
 import org.apache.http.ssl.SSLContexts;
 import org.apache.solr.common.params.ModifiableSolrParams;
 import org.apache.solr.common.params.SolrParams;
+import org.apache.solr.common.util.CausynthBounds;
 import org.apache.solr.common.util.IOUtils;
 import org.apache.solr.common.util.ObjectReleaseTracker;
 import org.apache.solr.common.util.Utils;
@@ -78,8 +79,8 @@ public class HttpClientUtil {
   
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
   
-  public static final int DEFAULT_CONNECT_TIMEOUT = 60000;
-  public static final int DEFAULT_SO_TIMEOUT = 600000;
+  public static final int DEFAULT_CONNECT_TIMEOUT = CausynthBounds.millis(60000);
+  public static final int DEFAULT_SO_TIMEOUT = CausynthBounds.millis(600000);
   public static final int DEFAULT_MAXCONNECTIONSPERHOST = 100000;
   public static final int DEFAULT_MAXCONNECTIONS = 100000;
   

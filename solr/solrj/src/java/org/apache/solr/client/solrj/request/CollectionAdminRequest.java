@@ -57,6 +57,7 @@ import org.apache.solr.common.params.ModifiableSolrParams;
 import org.apache.solr.common.params.ShardParams;
 import org.apache.solr.common.params.SolrParams;
 import org.apache.solr.common.params.V2ApiParams;
+import org.apache.solr.common.util.CausynthBounds;
 import org.apache.solr.common.util.NamedList;
 
 import static org.apache.solr.client.solrj.cloud.autoscaling.Policy.POLICY;
@@ -1696,12 +1697,8 @@ public abstract class CollectionAdminRequest<T extends CollectionAdminResponse> 
      */
     public RequestStatusState waitFor(SolrClient client, long timeoutSeconds)
         throws IOException, SolrServerException, InterruptedException {
-      // GraphChecker: a workload of an automatic cluster waits without its
-      // bound, which is sized for a native run, not for a replay held to a
-      // recorded order.
-      long bound = Boolean.getBoolean("causynth.cluster.automatic")
-          ? TimeUnit.HOURS.toSeconds(6) : timeoutSeconds;
-      long finishTime = System.nanoTime() + TimeUnit.SECONDS.toNanos(bound);
+      long finishTime = System.nanoTime()
+          + TimeUnit.SECONDS.toNanos(CausynthBounds.of(timeoutSeconds, TimeUnit.SECONDS));
       RequestStatusState state = RequestStatusState.NOT_FOUND;
       while (System.nanoTime() < finishTime) {
         state = this.process(client).getRequestStatus();

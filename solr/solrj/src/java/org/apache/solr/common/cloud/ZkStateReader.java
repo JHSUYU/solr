@@ -55,6 +55,7 @@ import org.apache.solr.common.SolrException.ErrorCode;
 import org.apache.solr.common.params.AutoScalingParams;
 import org.apache.solr.common.params.CollectionAdminParams;
 import org.apache.solr.common.params.CoreAdminParams;
+import org.apache.solr.common.util.CausynthBounds;
 import org.apache.solr.common.util.ExecutorUtil;
 import org.apache.solr.common.util.ObjectReleaseTracker;
 import org.apache.solr.common.util.Pair;
@@ -1810,16 +1811,6 @@ public class ZkStateReader implements SolrCloseable {
    * @see #waitForState(String, long, TimeUnit, Predicate)
    * @see #registerCollectionStateWatcher
    */
-  // GraphChecker: in an automatic cluster no wait for a state times out, the
-  // workload's or a node's (an Overseer command's wait for a deleted
-  // collection).  A timeout is sized for a native run; a replay held to a
-  // recorded order runs slower, and a wait that times out there is the
-  // replay's, not the system's.
-  private static boolean causynthAwait(CountDownLatch latch, long wait, TimeUnit unit)
-      throws InterruptedException {
-    return Boolean.getBoolean("causynth.cluster.automatic")
-        ? latch.await(6, TimeUnit.HOURS) : latch.await(wait, unit);
-  }
 
   public void waitForState(final String collection, long wait, TimeUnit unit, CollectionStatePredicate predicate)
       throws InterruptedException, TimeoutException {
@@ -1861,7 +1852,7 @@ public class ZkStateReader implements SolrCloseable {
 
     try {
       // wait for the watcher predicate to return true, or time out
-      if (!causynthAwait(latch, wait, unit))
+      if (!latch.await(CausynthBounds.of(wait, unit), unit))
         throw new TimeoutException("Timeout waiting to see state for collection=" + collection + " :" + docCollection.get());
 
     } finally {
@@ -1920,7 +1911,7 @@ public class ZkStateReader implements SolrCloseable {
 
     try {
       // wait for the watcher predicate to return true, or time out
-      if (!causynthAwait(latch, wait, unit))
+      if (!latch.await(CausynthBounds.of(wait, unit), unit))
         throw new TimeoutException(
             "Timeout waiting to see state for collection="
                 + collection
@@ -1970,7 +1961,7 @@ public class ZkStateReader implements SolrCloseable {
 
     try {
       // wait for the watcher predicate to return true, or time out
-      if (!causynthAwait(latch, wait, unit))
+      if (!latch.await(CausynthBounds.of(wait, unit), unit))
         throw new TimeoutException("Timeout waiting for live nodes, currently they are: " + getClusterState().getLiveNodes());
 
     } finally {

@@ -23,11 +23,11 @@ import java.util.Comparator;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 import edu.uva.liftlab.graphchecker.runtime.MessageDoors;
 import org.apache.solr.client.solrj.embedded.JettySolrRunner;
 import org.apache.solr.client.solrj.impl.CloudSolrClient;
+import org.apache.solr.common.util.CausynthBounds;
 import org.apache.solr.core.CoreContainer;
 
 /**
@@ -35,7 +35,7 @@ import org.apache.solr.core.CoreContainer;
  * registered before the window opens, and the world the window starts from
  * the same in the recording and in every replay.
  *
- * <p>With {@link #AUTOMATIC} set, any cluster test is a workload as it is
+ * <p>With {@link CausynthBounds#AUTOMATIC} set, any cluster test is a workload as it is
  * written.  Each cluster registers its nodes as it comes up ({@code
  * auto<n>/node<i>}, in the order of their names) and its client; the first
  * one opens the window with one request on the thread that built it, and the
@@ -52,11 +52,7 @@ import org.apache.solr.core.CoreContainer;
  * many times slower.</p>
  */
 public final class CausynthSolrCluster {
-  /** Set on a workload JVM whose cluster tests were written without GraphChecker. */
-  public static final String AUTOMATIC = "causynth.cluster.automatic";
   private static final String NODE = "CLUSTER_NODE";
-  /** Longer than any case runs: an expiry that cannot fire. */
-  public static final int NEVER_MS = (int) TimeUnit.HOURS.toMillis(6);
   /** The system properties the cluster's solr.xml reads its timeouts from. */
   private static final String[] TIMEOUTS = {"solr.zkclienttimeout", "socketTimeout",
       "connTimeout", "distribUpdateConnTimeout", "distribUpdateSoTimeout"};
@@ -71,20 +67,16 @@ public final class CausynthSolrCluster {
   private CausynthSolrCluster() {
   }
 
-  public static boolean automatic() {
-    return Boolean.getBoolean(AUTOMATIC);
-  }
-
   /** Before the cluster starts: its timeouts, and its ZooKeeper's session bound. */
   public static void configure(ZkTestServer zkServer) {
     for (String timeout : TIMEOUTS) {
-      System.setProperty(timeout, Integer.toString(NEVER_MS));
+      System.setProperty(timeout, Integer.toString(CausynthBounds.NEVER_MS));
     }
     if (zkServer != null) {
-      zkServer.setMaxSessionTimeout(NEVER_MS);
+      zkServer.setMaxSessionTimeout(CausynthBounds.NEVER_MS);
     }
     // How long a collections API call waits for the Overseer to answer.
-    org.apache.solr.handler.admin.CollectionsHandler.DEFAULT_COLLECTION_OP_TIMEOUT = NEVER_MS;
+    org.apache.solr.handler.admin.CollectionsHandler.DEFAULT_COLLECTION_OP_TIMEOUT = CausynthBounds.NEVER_MS;
   }
 
   /**
