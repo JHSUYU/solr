@@ -912,18 +912,12 @@ public class SolrZkClient implements Closeable {
         // changes that arrive before a watch is set again into one event, so
         // how many callbacks a run takes is its timing's, and a schedule held to
         // the recording's count waits for callbacks that never come.
-        // The version a callback reads is what caused it (causynthRead), and
-        // its pooled thread takes the next callback with none.
+        // The first version a callback reads is what caused it (causynthRead);
+        // a read outside a callback, a loop polling the store, is data only.
         if (watcher instanceof ConnectionManager) {
           zkConnManagerCallbackExecutor.submit(() -> watcher.process(event));
         } else {
-          zkCallbackExecutor.submit(() -> {
-            try {
-              watcher.process(event);
-            } finally {
-              MessageDoors.endInbound();
-            }
-          });
+          zkCallbackExecutor.submit(() -> MessageDoors.notified(() -> watcher.process(event)));
         }
       } catch (RejectedExecutionException e) {
         // If not a graceful shutdown
