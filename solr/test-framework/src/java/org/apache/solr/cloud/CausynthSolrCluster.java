@@ -40,7 +40,8 @@ import org.apache.solr.core.CoreContainer;
  * auto<n>/node<i>}, in the order of their names) and its client; the first
  * one opens the window with one request on the thread that built it, and the
  * test method runs under a request of its own ({@link #beginTest}), since
- * the randomized runner gives a test a thread of its own.</p>
+ * the randomized runner gives a test a thread of its own.  The window closes
+ * with the test ({@link #endTest}): the cluster's teardown is not recorded.</p>
  *
  * <p>The same world at the window: every node the cluster starts comes up in
  * turn, so the first one is the Overseer, on a port above the one before it,
@@ -165,10 +166,12 @@ public final class CausynthSolrCluster {
     }
   }
 
+  /** The test is over: its request ends, and so does the window. */
   public static synchronized void endTest() {
     if (testRequest != 0L) {
       MessageDoors.endRequest(testRequest, "test");
       testRequest = 0L;
+      MessageDoors.stopRecording();
     }
   }
 
