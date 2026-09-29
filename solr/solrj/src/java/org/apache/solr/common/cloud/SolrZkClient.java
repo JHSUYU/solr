@@ -16,6 +16,8 @@
  */
 package org.apache.solr.common.cloud;
 
+import edu.uva.liftlab.graphchecker.runtime.MessageDoors;
+
 
 import java.io.Closeable;
 import java.io.File;
@@ -346,11 +348,27 @@ public class SolrZkClient implements Closeable {
    */
   public byte[] getData(final String path, final Watcher watcher, final Stat stat, boolean retryOnConnLoss)
       throws KeeperException, InterruptedException {
+    // GraphChecker: the version read is the message its write sent.
+    final Stat read = stat != null ? stat : new Stat();
+    byte[] data;
     if (retryOnConnLoss) {
-      return zkCmdExecutor.retryOperation(() -> keeper.getData(path, wrapWatcher(watcher), stat));
+      data = zkCmdExecutor.retryOperation(() -> keeper.getData(path, wrapWatcher(watcher), read));
     } else {
-      return keeper.getData(path, wrapWatcher(watcher), stat);
+      data = keeper.getData(path, wrapWatcher(watcher), read);
     }
+    causynthRead(path, read);
+    return data;
+  }
+
+  /** GraphChecker's store transport: a znode version, written by one node, read by any. */
+  private static final String CAUSYNTH_ZK = "SOLR_ZK";
+
+  private void causynthWrote(String path, int version) {
+    MessageDoors.stored(CAUSYNTH_ZK, path + "@" + version, this);
+  }
+
+  private void causynthRead(String path, Stat stat) {
+    MessageDoors.fetched(CAUSYNTH_ZK, path + "@" + stat.getVersion(), this);
   }
 
   /**
@@ -358,11 +376,14 @@ public class SolrZkClient implements Closeable {
    */
   public Stat setData(final String path, final byte data[], final int version, boolean retryOnConnLoss)
       throws KeeperException, InterruptedException {
+    Stat written;
     if (retryOnConnLoss) {
-      return zkCmdExecutor.retryOperation(() -> keeper.setData(path, data, version));
+      written = zkCmdExecutor.retryOperation(() -> keeper.setData(path, data, version));
     } else {
-      return keeper.setData(path, data, version);
+      written = keeper.setData(path, data, version);
     }
+    causynthWrote(path, written.getVersion());
+    return written;
   }
 
   public void atomicUpdate(String path, Function<byte[], byte[]> editor) throws KeeperException, InterruptedException {
@@ -407,13 +428,16 @@ public class SolrZkClient implements Closeable {
   public String create(final String path, final byte[] data,
       final CreateMode createMode, boolean retryOnConnLoss) throws KeeperException,
       InterruptedException {
+    String created;
     if (retryOnConnLoss) {
-      return zkCmdExecutor.retryOperation(() -> keeper.create(path, data, zkACLProvider.getACLsToAdd(path),
+      created = zkCmdExecutor.retryOperation(() -> keeper.create(path, data, zkACLProvider.getACLsToAdd(path),
           createMode));
     } else {
       List<ACL> acls = zkACLProvider.getACLsToAdd(path);
-      return keeper.create(path, data, acls, createMode);
+      created = keeper.create(path, data, acls, createMode);
     }
+    causynthWrote(created, 0);
+    return created;
   }
 
   /**
@@ -539,10 +563,12 @@ public class SolrZkClient implements Closeable {
           final byte[] finalBytes = bytes;
           zkCmdExecutor.retryOperation(() -> {
             keeper.create(currentPath, finalBytes, zkACLProvider.getACLsToAdd(currentPath), finalMode);
+            causynthWrote(currentPath, 0);
             return null;
           });
         } else {
           keeper.create(currentPath, bytes, zkACLProvider.getACLsToAdd(currentPath), mode);
+          causynthWrote(currentPath, 0);
         }
       } catch (NoAuthException e) {
         // in auth cases, we may not have permission for an earlier part of a path, which is fine
@@ -598,11 +624,22 @@ public class SolrZkClient implements Closeable {
   }
 
   public List<OpResult> multi(final Iterable<Op> ops, boolean retryOnConnLoss) throws InterruptedException, KeeperException  {
+    List<OpResult> results;
     if (retryOnConnLoss) {
-      return zkCmdExecutor.retryOperation(() -> keeper.multi(ops));
+      results = zkCmdExecutor.retryOperation(() -> keeper.multi(ops));
     } else {
-      return keeper.multi(ops);
+      results = keeper.multi(ops);
     }
+    java.util.Iterator<Op> op = ops.iterator();
+    for (OpResult result : results) {
+      String path = op.hasNext() ? op.next().getPath() : null;
+      if (result instanceof OpResult.CreateResult) {
+        causynthWrote(((OpResult.CreateResult) result).getPath(), 0);
+      } else if (result instanceof OpResult.SetDataResult && path != null) {
+        causynthWrote(path, ((OpResult.SetDataResult) result).getStat().getVersion());
+      }
+    }
+    return results;
   }
 
   /**
@@ -875,10 +912,18 @@ public class SolrZkClient implements Closeable {
         // changes that arrive before a watch is set again into one event, so
         // how many callbacks a run takes is its timing's, and a schedule held to
         // the recording's count waits for callbacks that never come.
+        // The version a callback reads is what caused it (causynthRead), and
+        // its pooled thread takes the next callback with none.
         if (watcher instanceof ConnectionManager) {
           zkConnManagerCallbackExecutor.submit(() -> watcher.process(event));
         } else {
-          zkCallbackExecutor.submit(() -> watcher.process(event));
+          zkCallbackExecutor.submit(() -> {
+            try {
+              watcher.process(event);
+            } finally {
+              MessageDoors.endInbound();
+            }
+          });
         }
       } catch (RejectedExecutionException e) {
         // If not a graceful shutdown
