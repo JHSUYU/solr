@@ -41,10 +41,11 @@ import org.junit.Test;
  * a leader commit, without the failure.
  *
  * <p>A PULL replica fetches generation G in several requests: indexversion,
- * filelist(G), then one filecontent(G) per file (the configset keeps every
- * commit's segment and no compound files, so G is many files).  Between two
- * of those requests the leader keeps G only by the reservation it renews at
- * each, and a leader commit meanwhile asks its deletion policy to delete G.
+ * filelist(G), then one filecontent(G) per file.  Between two of those
+ * requests the leader keeps G only by the reservation it renews at each, and
+ * a leader commit meanwhile asks its deletion policy to delete G.  G is one
+ * commit in compound files, so its download is a handful of requests: the
+ * window that matters is the hold after filelist(G), not the file count.
  * Here the follower is held after filelist(G) (the hook upstream added for
  * its own test) while the leader commits G+1; the configset reserves for an
  * hour, so the policy finds G reserved and every filecontent of G is served.
@@ -54,7 +55,7 @@ import org.junit.Test;
 @LuceneTestCase.Slow
 public class TestCausynthPullReplicaReservation extends SolrCloudTestCase {
   private static final String COLLECTION = "causynthPull";
-  private static final int COMMITS = 8;
+  private static final int COMMITS = 1;
   private static final int DOCS_PER_COMMIT = 20;
 
   @BeforeClass

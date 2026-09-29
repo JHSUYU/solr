@@ -44,12 +44,13 @@
     </lst>
 
   </requestHandler>
-  <!-- Every commit keeps its own segment, so one generation is many files
-       and a follower's download of it is many filecontent requests. -->
+  <!-- No merge between the leader's commits of G and G+1, and G in compound
+       files: a follower's download of G is a handful of filecontent
+       requests. -->
   <indexConfig>
     <mergePolicyFactory class="org.apache.solr.index.NoMergePolicyFactory"/>
     <mergeScheduler class="${solr.mscheduler:org.apache.lucene.index.ConcurrentMergeScheduler}"/>
-    <useCompoundFile>false</useCompoundFile>
+    <useCompoundFile>true</useCompoundFile>
   </indexConfig>
   <!-- A reservation no run outlasts: between two of a follower's requests
        the generation it fetches is kept by this reservation alone. -->
