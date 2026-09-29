@@ -368,7 +368,7 @@ public class SolrZkClient implements Closeable {
   }
 
   /** GraphChecker's store transport: a znode version, written by one node, read by any. */
-  private static final String CAUSYNTH_ZK = "SOLR_ZK";
+  public static final String CAUSYNTH_ZK = "SOLR_ZK";
 
   private void causynthWrote(String path, int version) {
     MessageDoors.stored(CAUSYNTH_ZK, path + "@" + version, this);

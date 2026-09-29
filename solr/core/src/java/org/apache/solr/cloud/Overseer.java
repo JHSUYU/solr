@@ -280,6 +280,10 @@ public class Overseer implements SolrCloseable {
                 // however the queue batched it.
                 long causynthTick = MessageDoors.beginTick(Overseer.this, "OVERSEER_STATE_UPDATE");
                 try {
+                  // GraphChecker: the queue item is this turn's message; what
+                  // its writer carried arrives with it.
+                  MessageDoors.consumed(SolrZkClient.CAUSYNTH_ZK,
+                      stateUpdateQueue.dir + "/" + head.first() + "@0");
                   // GraphChecker: an automatic cluster writes each state message
                   // in its own turn, so a node's watch callback that reads the
                   // version it wrote has that message for its cause.
