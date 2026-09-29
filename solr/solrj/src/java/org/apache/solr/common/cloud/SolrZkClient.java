@@ -360,6 +360,13 @@ public class SolrZkClient implements Closeable {
     return data;
   }
 
+  /** What a watcher is, the same in every run: its class, a lambda's by its enclosing one. */
+  private static String causynthKind(Watcher watcher) {
+    String name = watcher.getClass().getName();
+    int lambda = name.indexOf("$$Lambda");
+    return name.substring(name.lastIndexOf('.') + 1, lambda < 0 ? name.length() : lambda);
+  }
+
   /** GraphChecker's store transport: a znode version, written by one node, read by any. */
   private static final String CAUSYNTH_ZK = "SOLR_ZK";
 
@@ -917,7 +924,8 @@ public class SolrZkClient implements Closeable {
         if (watcher instanceof ConnectionManager) {
           zkConnManagerCallbackExecutor.submit(() -> watcher.process(event));
         } else {
-          zkCallbackExecutor.submit(() -> MessageDoors.notified(() -> watcher.process(event)));
+          zkCallbackExecutor.submit(() -> MessageDoors.notified(causynthKind(watcher),
+              () -> watcher.process(event)));
         }
       } catch (RejectedExecutionException e) {
         // If not a graceful shutdown
