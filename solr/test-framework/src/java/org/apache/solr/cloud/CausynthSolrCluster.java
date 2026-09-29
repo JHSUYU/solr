@@ -46,8 +46,9 @@ import org.apache.solr.core.CoreContainer;
  * turn, so the first one is the Overseer, on a port above the one before it,
  * so the nodes' names -- which placement orders -- sort the way they were
  * started; and nothing the cluster sets up expires on the wall clock (ZK
- * sessions, socket and update timeouts), because the recording runs on a JIT
- * and every replay on an interpreter many times slower.</p>
+ * sessions, socket and update timeouts, the test's own waits for a state on
+ * its client), because the recording runs on a JIT and every replay on an
+ * interpreter many times slower.</p>
  */
 public final class CausynthSolrCluster {
   /** Set on a workload JVM whose cluster tests were written without GraphChecker. */
@@ -126,6 +127,7 @@ public final class CausynthSolrCluster {
       MessageDoors.registerNode(client, "EXTERNAL_APP", "SOLR_CLIENT", prefix + "/client0",
           client.getLbClient(), client.getZkStateReader(),
           client.getZkStateReader().getZkClient());
+      client.getZkStateReader().causynthUnboundedWaits();
       MessageDoors.startRecording();
       suiteRequest = MessageDoors.beginRequest(client, "suite");
     }

@@ -1810,6 +1810,21 @@ public class ZkStateReader implements SolrCloseable {
    * @see #waitForState(String, long, TimeUnit, Predicate)
    * @see #registerCollectionStateWatcher
    */
+  // GraphChecker: a workload's own reader (CausynthSolrCluster) waits without
+  // its timeout.  A test's timeout is sized for a native run; a replay held to
+  // a recorded order runs slower, and a wait that times out there is the
+  // replay's, not the system's.
+  private volatile boolean causynthUnbounded;
+
+  public void causynthUnboundedWaits() {
+    causynthUnbounded = true;
+  }
+
+  private boolean causynthAwait(CountDownLatch latch, long wait, TimeUnit unit)
+      throws InterruptedException {
+    return causynthUnbounded ? latch.await(6, TimeUnit.HOURS) : latch.await(wait, unit);
+  }
+
   public void waitForState(final String collection, long wait, TimeUnit unit, CollectionStatePredicate predicate)
       throws InterruptedException, TimeoutException {
 
@@ -1850,7 +1865,7 @@ public class ZkStateReader implements SolrCloseable {
 
     try {
       // wait for the watcher predicate to return true, or time out
-      if (!latch.await(wait, unit))
+      if (!causynthAwait(latch, wait, unit))
         throw new TimeoutException("Timeout waiting to see state for collection=" + collection + " :" + docCollection.get());
 
     } finally {
@@ -1909,7 +1924,7 @@ public class ZkStateReader implements SolrCloseable {
 
     try {
       // wait for the watcher predicate to return true, or time out
-      if (!latch.await(wait, unit))
+      if (!causynthAwait(latch, wait, unit))
         throw new TimeoutException(
             "Timeout waiting to see state for collection="
                 + collection
@@ -1959,7 +1974,7 @@ public class ZkStateReader implements SolrCloseable {
 
     try {
       // wait for the watcher predicate to return true, or time out
-      if (!latch.await(wait, unit))
+      if (!causynthAwait(latch, wait, unit))
         throw new TimeoutException("Timeout waiting for live nodes, currently they are: " + getClusterState().getLiveNodes());
 
     } finally {
