@@ -1810,19 +1810,15 @@ public class ZkStateReader implements SolrCloseable {
    * @see #waitForState(String, long, TimeUnit, Predicate)
    * @see #registerCollectionStateWatcher
    */
-  // GraphChecker: a workload's own reader (CausynthSolrCluster) waits without
-  // its timeout.  A test's timeout is sized for a native run; a replay held to
-  // a recorded order runs slower, and a wait that times out there is the
+  // GraphChecker: in an automatic cluster no wait for a state times out, the
+  // workload's or a node's (an Overseer command's wait for a deleted
+  // collection).  A timeout is sized for a native run; a replay held to a
+  // recorded order runs slower, and a wait that times out there is the
   // replay's, not the system's.
-  private volatile boolean causynthUnbounded;
-
-  public void causynthUnboundedWaits() {
-    causynthUnbounded = true;
-  }
-
-  private boolean causynthAwait(CountDownLatch latch, long wait, TimeUnit unit)
+  private static boolean causynthAwait(CountDownLatch latch, long wait, TimeUnit unit)
       throws InterruptedException {
-    return causynthUnbounded ? latch.await(6, TimeUnit.HOURS) : latch.await(wait, unit);
+    return Boolean.getBoolean("causynth.cluster.automatic")
+        ? latch.await(6, TimeUnit.HOURS) : latch.await(wait, unit);
   }
 
   public void waitForState(final String collection, long wait, TimeUnit unit, CollectionStatePredicate predicate)
