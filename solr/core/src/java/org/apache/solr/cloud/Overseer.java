@@ -203,7 +203,7 @@ public class Overseer implements SolrCloseable {
                   log.debug("processMessage: fallbackQueueSize: {}, message = {}", fallbackQueue.getZkStats().getQueueLength(), message);
                 }
                 try {
-                  long causynthTick = MessageDoors.beginTick(null, "OVERSEER_STATE_UPDATE");
+                  long causynthTick = MessageDoors.beginTick(Overseer.this, "OVERSEER_STATE_UPDATE");
                   try {
                     clusterState = processQueueItem(message, clusterState, zkStateWriter, false, null);
                   } finally {
@@ -277,7 +277,7 @@ public class Overseer implements SolrCloseable {
                 // The callback always be called on this thread
                 // GraphChecker: one state message is one turn of the Overseer,
                 // however the queue batched it.
-                long causynthTick = MessageDoors.beginTick(null, "OVERSEER_STATE_UPDATE");
+                long causynthTick = MessageDoors.beginTick(Overseer.this, "OVERSEER_STATE_UPDATE");
                 try {
                   clusterState = processQueueItem(message, clusterState, zkStateWriter, true, () -> {
                     stateUpdateQueue.remove(processedNodes);

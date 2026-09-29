@@ -672,7 +672,10 @@ public class MiniSolrCloudCluster {
   
   protected CloudSolrClient buildSolrClient() {
     return new Builder(Collections.singletonList(getZkServer().getZkAddress()), Optional.empty())
-        .withSocketTimeout(90000).withConnectionTimeout(15000).build(); // we choose 90 because we run in some harsh envs
+        // we choose 90 because we run in some harsh envs; an automatic cluster's
+        // client never times out (CausynthSolrCluster#configure)
+        .withSocketTimeout(CausynthSolrCluster.automatic() ? CausynthSolrCluster.NEVER_MS : 90000)
+        .withConnectionTimeout(15000).build();
   }
 
   private static String getHostContextSuitableForServletContext(String ctx) {

@@ -16,7 +16,6 @@
  */
 package org.apache.solr.common.cloud;
 
-import edu.uva.liftlab.graphchecker.runtime.MessageDoors;
 
 import java.io.Closeable;
 import java.io.File;
@@ -872,25 +871,14 @@ public class SolrZkClient implements Closeable {
     public void process(final WatchedEvent event) {
       log.debug("Submitting job to respond to event {}", event);
       try {
-        // GraphChecker: each watch callback is a daemon turn of this client's node.
+        // GraphChecker: a watch callback is no daemon turn.  ZooKeeper folds the
+        // changes that arrive before a watch is set again into one event, so
+        // how many callbacks a run takes is its timing's, and a schedule held to
+        // the recording's count waits for callbacks that never come.
         if (watcher instanceof ConnectionManager) {
-          zkConnManagerCallbackExecutor.submit(() -> {
-            long tick = MessageDoors.beginTick(SolrZkClient.this, "ZK_CONNECTION");
-            try {
-              watcher.process(event);
-            } finally {
-              MessageDoors.endTick(tick);
-            }
-          });
+          zkConnManagerCallbackExecutor.submit(() -> watcher.process(event));
         } else {
-          zkCallbackExecutor.submit(() -> {
-            long tick = MessageDoors.beginTick(SolrZkClient.this, "ZK_WATCH");
-            try {
-              watcher.process(event);
-            } finally {
-              MessageDoors.endTick(tick);
-            }
-          });
+          zkCallbackExecutor.submit(() -> watcher.process(event));
         }
       } catch (RejectedExecutionException e) {
         // If not a graceful shutdown

@@ -512,7 +512,9 @@ public class OverseerTaskProcessor implements Runnable, Closeable {
 
     public void run() {
       // GraphChecker: one collection-API task is one turn of the Overseer.
-      long causynthTick = MessageDoors.beginTick(null, "OVERSEER_TASK");
+      // Owned by the Overseer's node: its thread started before the node was
+      // registered, so the thread alone names no node.
+      long causynthTick = MessageDoors.beginTick(zkStateReader, "OVERSEER_TASK");
       try {
         runTask();
       } finally {

@@ -81,6 +81,8 @@ public final class CausynthSolrCluster {
     if (zkServer != null) {
       zkServer.setMaxSessionTimeout(NEVER_MS);
     }
+    // How long a collections API call waits for the Overseer to answer.
+    org.apache.solr.handler.admin.CollectionsHandler.DEFAULT_COLLECTION_OP_TIMEOUT = NEVER_MS;
   }
 
   /**
