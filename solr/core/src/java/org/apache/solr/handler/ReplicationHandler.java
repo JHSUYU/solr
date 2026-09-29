@@ -1254,6 +1254,9 @@ public class ReplicationHandler extends RequestHandlerBase implements SolrCoreAw
       // GraphChecker: one poll is one turn of this follower's node.
       long causynthTick = MessageDoors.beginTick(core.getCoreContainer(), "REPLICATION_POLL");
       try {
+        // GraphChecker: a poll the recording never made, which a replay let
+        // go only because the run waits on this task, polls nothing.
+        if (MessageDoors.vacant(causynthTick)) return;
         log.debug("Polling for index modifications");
         markScheduledExecutionStart();
         IndexFetchResult fetchResult = doFetch(null, false);
