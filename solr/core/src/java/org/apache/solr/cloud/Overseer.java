@@ -16,6 +16,8 @@
  */
 package org.apache.solr.cloud;
 
+import edu.uva.liftlab.graphchecker.runtime.MessageDoors;
+
 import static org.apache.solr.common.params.CommonParams.ID;
 
 import java.io.Closeable;
@@ -201,7 +203,12 @@ public class Overseer implements SolrCloseable {
                   log.debug("processMessage: fallbackQueueSize: {}, message = {}", fallbackQueue.getZkStats().getQueueLength(), message);
                 }
                 try {
-                  clusterState = processQueueItem(message, clusterState, zkStateWriter, false, null);
+                  long causynthTick = MessageDoors.beginTick(null, "OVERSEER_STATE_UPDATE");
+                  try {
+                    clusterState = processQueueItem(message, clusterState, zkStateWriter, false, null);
+                  } finally {
+                    MessageDoors.endTick(causynthTick);
+                  }
                 } catch (Exception e) {
                   if (isBadMessage(e)) {
                     log.warn("Exception when process message = {}, consider as bad message and poll out from the queue", message);
@@ -268,10 +275,17 @@ public class Overseer implements SolrCloseable {
                   clusterState = m.run(clusterState, Overseer.this, zkStateWriter);
                 }
                 // The callback always be called on this thread
-                clusterState = processQueueItem(message, clusterState, zkStateWriter, true, () -> {
-                  stateUpdateQueue.remove(processedNodes);
-                  processedNodes.clear();
-                });
+                // GraphChecker: one state message is one turn of the Overseer,
+                // however the queue batched it.
+                long causynthTick = MessageDoors.beginTick(null, "OVERSEER_STATE_UPDATE");
+                try {
+                  clusterState = processQueueItem(message, clusterState, zkStateWriter, true, () -> {
+                    stateUpdateQueue.remove(processedNodes);
+                    processedNodes.clear();
+                  });
+                } finally {
+                  MessageDoors.endTick(causynthTick);
+                }
               }
               if (isClosed) break;
               // if an event comes in the next 100ms batch it together

@@ -67,6 +67,7 @@ import org.apache.solr.common.params.SolrParams;
 import org.apache.solr.common.params.UpdateParams;
 import org.apache.solr.common.util.Base64;
 import org.apache.solr.common.util.ContentStream;
+import org.apache.solr.common.util.CausynthHttp;
 import org.apache.solr.common.util.ExecutorUtil;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.common.util.ObjectReleaseTracker;
@@ -488,6 +489,8 @@ public class Http2SolrClient extends SolrClient {
         req.header(entry.getKey(), entry.getValue());
       }
     }
+    // GraphChecker: every request this client sends, sync, async or streamed.
+    CausynthHttp.request(this, (name, value) -> req.header(name, value));
   }
   
   private String changeV2RequestEndpoint(String basePath) throws MalformedURLException {
@@ -656,6 +659,7 @@ public class Http2SolrClient extends SolrClient {
                                                      String encoding,
                                                      final boolean isV2Api)
       throws SolrServerException {
+    CausynthHttp.response(response.getHeaders()::get, this);
     boolean shouldClose = true;
     try {
       // handle some http level checks before trying to parse the response

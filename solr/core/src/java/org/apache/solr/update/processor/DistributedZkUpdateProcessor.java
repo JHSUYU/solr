@@ -17,6 +17,8 @@
 
 package org.apache.solr.update.processor;
 
+import edu.uva.liftlab.graphchecker.annotation.CausynthExceptionTarget;
+
 import java.io.IOException;
 import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
@@ -926,7 +928,13 @@ public class DistributedZkUpdateProcessor extends DistributedUpdateProcessor {
                 int hash = compositeIdRouter.sliceHash(id, doc, null, coll);
                 for (DocRouter.Range range : ranges) {
                   if (range.includes(hash)) {
-                    DocCollection targetColl = cstate.getCollection(rule.getTargetCollectionName());
+                    // ClusterState.getCollection, spelled out so the fatal site is this lookup's own.
+                    DocCollection targetColl = cstate.getCollectionOrNull(rule.getTargetCollectionName());
+                    if (targetColl == null) {
+                      throw new @CausynthExceptionTarget("solr-18413") SolrException(
+                          SolrException.ErrorCode.BAD_REQUEST,
+                          "Could not find collection : " + rule.getTargetCollectionName());
+                    }
                     Collection<Slice> activeSlices = targetColl.getRouter().getSearchSlicesSingle(id, null, targetColl);
                     if (activeSlices == null || activeSlices.isEmpty()) {
                       throw new SolrException(SolrException.ErrorCode.SERVER_ERROR,

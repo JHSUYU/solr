@@ -16,6 +16,8 @@
  */
 package org.apache.solr.core;
 
+import edu.uva.liftlab.graphchecker.annotation.CausynthExceptionTarget;
+
 import java.io.IOException;
 import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
@@ -174,7 +176,7 @@ public final class IndexDeletionPolicyWrapper extends IndexDeletionPolicy {
     final IndexCommit commit = knownCommits.get(generation);
     if ( (null != commit && false != commit.isDeleted())
          || (null == commit && null != latestCommit && generation < latestCommit.getGeneration()) ) {
-      throw new IllegalStateException
+      throw new @CausynthExceptionTarget("solr-18406") IllegalStateException
         ("Specified index generation is too old to be saved: " + generation);
     }
     final AtomicInteger refCount

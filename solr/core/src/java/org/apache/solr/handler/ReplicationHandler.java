@@ -16,6 +16,8 @@
  */
 package org.apache.solr.handler;
 
+import edu.uva.liftlab.graphchecker.runtime.MessageDoors;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -1249,6 +1251,8 @@ public class ReplicationHandler extends RequestHandlerBase implements SolrCoreAw
         return;
       }
       ExecutorUtil.setServerThreadFlag(true); // so PKI auth works
+      // GraphChecker: one poll is one turn of this follower's node.
+      long causynthTick = MessageDoors.beginTick(core.getCoreContainer(), "REPLICATION_POLL");
       try {
         log.debug("Polling for index modifications");
         markScheduledExecutionStart();
@@ -1257,6 +1261,7 @@ public class ReplicationHandler extends RequestHandlerBase implements SolrCoreAw
       } catch (Exception e) {
         log.error("Exception in fetching index", e);
       } finally {
+        MessageDoors.endTick(causynthTick);
         ExecutorUtil.setServerThreadFlag(null);
       }
     };

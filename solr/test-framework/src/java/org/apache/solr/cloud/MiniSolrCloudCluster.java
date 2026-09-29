@@ -277,14 +277,18 @@ public class MiniSolrCloudCluster {
     if (!externalZkServer) {
       Path zkDir = baseDir.resolve("zookeeper/server1/data");
       zkTestServer = new ZkTestServer(zkDir);
+      if (CausynthSolrCluster.automatic()) CausynthSolrCluster.configure(zkTestServer);
       try {
         zkTestServer.run();
       } catch (Exception e) {
         log.error("Error starting Zk Test Server, trying again ...");
         zkTestServer.shutdown();
         zkTestServer = new ZkTestServer(zkDir);
+        if (CausynthSolrCluster.automatic()) CausynthSolrCluster.configure(zkTestServer);
         zkTestServer.run();
       }
+    } else if (CausynthSolrCluster.automatic()) {
+      CausynthSolrCluster.configure(null);
     }
     this.zkServer = zkTestServer;
 
@@ -303,7 +307,10 @@ public class MiniSolrCloudCluster {
       startups.add(() -> startJettySolrRunner(newNodeName(), jettyConfig.context, jettyConfig));
     }
 
-    final ExecutorService executorLauncher = ExecutorUtil.newMDCAwareCachedThreadPool(new SolrNamedThreadFactory("jetty-launcher"));
+    // GraphChecker: the nodes come up in turn, so the first is the Overseer in every run.
+    final ExecutorService executorLauncher = CausynthSolrCluster.automatic()
+        ? ExecutorUtil.newMDCAwareSingleThreadExecutor(new SolrNamedThreadFactory("jetty-launcher"))
+        : ExecutorUtil.newMDCAwareCachedThreadPool(new SolrNamedThreadFactory("jetty-launcher"));
     Collection<Future<JettySolrRunner>> futures = executorLauncher.invokeAll(startups);
     ExecutorUtil.shutdownAndAwaitTermination(executorLauncher);
     Exception startupError = checkForExceptions("Error starting up MiniSolrCloudCluster", futures);
@@ -322,7 +329,9 @@ public class MiniSolrCloudCluster {
     if (numServers > 0) {
       waitForAllNodes(numServers, 60);
     }
-
+    if (CausynthSolrCluster.automatic()) {
+      CausynthSolrCluster.registerAutomatically(this);
+    }
   }
 
   private void waitForAllNodes(int numServers, int timeoutSeconds) throws IOException, InterruptedException, TimeoutException {
@@ -475,12 +484,19 @@ public class MiniSolrCloudCluster {
 
     Path runnerPath = createInstancePath(name);
     String context = getHostContextSuitableForServletContext(hostContext);
-    JettyConfig newConfig = JettyConfig.builder(config).setContext(context).build();
+    JettyConfig.Builder builder = JettyConfig.builder(config).setContext(context);
+    if (CausynthSolrCluster.automatic() && config.port == 0) {
+      builder.setPort(CausynthSolrCluster.nextPort());
+    }
+    JettyConfig newConfig = builder.build();
     JettySolrRunner jetty = !trackJettyMetrics 
       ? new JettySolrRunner(runnerPath.toString(), nodeProps, newConfig)
       : new JettySolrRunnerWithMetrics(runnerPath.toString(), nodeProps, newConfig);
     jetty.start();
     jettys.add(jetty);
+    if (CausynthSolrCluster.automatic()) {
+      CausynthSolrCluster.registerStartedNodes(this);
+    }
     return jetty;
   }
   
@@ -617,6 +633,9 @@ public class MiniSolrCloudCluster {
    * Shut down the cluster, including all Solr nodes and ZooKeeper
    */
   public void shutdown() throws Exception {
+    if (CausynthSolrCluster.automatic()) {
+      CausynthSolrCluster.shutdownAutomatically(this);
+    }
     try {
     
       IOUtils.closeQuietly(solrClient);

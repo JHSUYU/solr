@@ -67,6 +67,8 @@ import org.apache.solr.common.SolrException;
 import org.apache.solr.common.SolrException.ErrorCode;
 import org.apache.solr.common.cloud.SolrZkClient;
 import org.apache.solr.common.util.ExecutorUtil;
+import org.apache.solr.common.util.CausynthHttp;
+import edu.uva.liftlab.graphchecker.runtime.MessageDoors;
 import org.apache.solr.core.CoreContainer;
 import org.apache.solr.core.NodeConfig;
 import org.apache.solr.core.NodeRoles;
@@ -364,7 +366,19 @@ public class SolrDispatchFilter extends BaseSolrFilter {
   
   @Override
   public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
-    doFilter(request, response, chain, false);
+    // GraphChecker: the request's exchange is this thread's while it is served,
+    // and a pooled thread's next request starts with none.
+    MessageDoors.Inbound causynth = null;
+    if (request instanceof HttpServletRequest) {
+      HttpServletRequest http = (HttpServletRequest) request;
+      causynth = CausynthHttp.received(http::getHeader, this);
+      request.setAttribute(CausynthHttp.CORRELATION, http.getHeader(CausynthHttp.CORRELATION));
+    }
+    try {
+      doFilter(request, response, chain, false);
+    } finally {
+      MessageDoors.endInbound(causynth);
+    }
   }
   
   public void doFilter(ServletRequest _request, ServletResponse _response, FilterChain chain, boolean retry) throws IOException, ServletException {

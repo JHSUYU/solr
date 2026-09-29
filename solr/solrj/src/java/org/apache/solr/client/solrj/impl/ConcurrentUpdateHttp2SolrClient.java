@@ -39,6 +39,7 @@ import org.apache.solr.common.SolrException;
 import org.apache.solr.common.params.SolrParams;
 import org.apache.solr.common.params.UpdateParams;
 import org.apache.solr.common.util.ExecutorUtil;
+import org.apache.solr.common.util.CausynthHttp;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.common.util.SolrNamedThreadFactory;
 import org.eclipse.jetty.client.api.Response;
@@ -244,6 +245,7 @@ public class ConcurrentUpdateHttp2SolrClient extends SolrClient {
             }
 
             Response response = responseListener.get(client.getIdleTimeout(), TimeUnit.MILLISECONDS);
+            CausynthHttp.response(response.getHeaders()::get, client);
             rspBody = responseListener.getInputStream();
 
             int statusCode = response.getStatus();

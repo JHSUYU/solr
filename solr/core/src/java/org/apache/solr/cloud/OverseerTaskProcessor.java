@@ -16,6 +16,8 @@
  */
 package org.apache.solr.cloud;
 
+import edu.uva.liftlab.graphchecker.runtime.MessageDoors;
+
 import java.io.Closeable;
 import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
@@ -509,6 +511,16 @@ public class OverseerTaskProcessor implements Runnable, Closeable {
 
 
     public void run() {
+      // GraphChecker: one collection-API task is one turn of the Overseer.
+      long causynthTick = MessageDoors.beginTick(null, "OVERSEER_TASK");
+      try {
+        runTask();
+      } finally {
+        MessageDoors.endTick(causynthTick);
+      }
+    }
+
+    private void runTask() {
       String statsName = messageHandler.getTimerName(operation);
       final Timer.Context timerContext = stats.time(statsName);
 

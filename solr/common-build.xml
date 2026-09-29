@@ -75,12 +75,18 @@
   <!-- backwards compatibility with existing targets/tasks; TODO: remove this! -->
   <property name="fullnamever" value="${final.name}"/>
 
+  <!-- GraphChecker: the message doors and the fatal-site annotation the tree
+       calls.  Last on every path, so the tree's own libraries win. -->
+  <property name="graphchecker.jar"
+            location="${user.home}/GraphChecker/target/GraphChecker-1.0-SNAPSHOT-jar-with-dependencies.jar"/>
+
   <path id="additional.dependencies">
     <fileset dir="${common-solr.dir}/core/lib" excludes="${common.classpath.excludes}"/>
     <fileset dir="${common-solr.dir}/solrj/lib" excludes="${common.classpath.excludes}"/>
     <fileset dir="${common-solr.dir}/server/lib" excludes="${common.classpath.excludes}"/>
     <fileset dir="${common-solr.dir}/example/example-DIH/solr/db/lib" excludes="${common.classpath.excludes}"/>    
     <fileset dir="lib" excludes="${common.classpath.excludes}" erroronmissingdir="false"/>
+    <pathelement location="${graphchecker.jar}"/>
   </path>
 
   <path id="solr.lucene.libs">

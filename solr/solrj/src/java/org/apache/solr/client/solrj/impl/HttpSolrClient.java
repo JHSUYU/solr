@@ -80,6 +80,7 @@ import org.apache.solr.common.params.ModifiableSolrParams;
 import org.apache.solr.common.params.SolrParams;
 import org.apache.solr.common.util.Base64;
 import org.apache.solr.common.util.ContentStream;
+import org.apache.solr.common.util.CausynthHttp;
 import org.apache.solr.common.util.ExecutorUtil;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.common.util.SolrNamedThreadFactory;
@@ -568,7 +569,12 @@ public class HttpSolrClient extends BaseHttpSolrClient {
         // to transfer authentication information to Auth plugins that wish to intercept the request later
         httpClientRequestContext.setUserToken(userPrincipal);
       }
+      CausynthHttp.request(this, method::setHeader);
       final HttpResponse response = httpClient.execute(method, httpClientRequestContext);
+      CausynthHttp.response(name -> {
+        org.apache.http.Header header = response.getFirstHeader(name);
+        return header == null ? null : header.getValue();
+      }, this);
 
       int httpStatus = response.getStatusLine().getStatusCode();
       

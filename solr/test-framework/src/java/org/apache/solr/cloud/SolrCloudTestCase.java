@@ -81,6 +81,17 @@ import org.slf4j.LoggerFactory;
  */
 public class SolrCloudTestCase extends SolrTestCaseJ4 {
 
+  /** GraphChecker: the test method runs under a request of its own. */
+  @org.junit.Before
+  public void causynthBeginTest() {
+    if (CausynthSolrCluster.automatic()) CausynthSolrCluster.beginTest();
+  }
+
+  @org.junit.After
+  public void causynthEndTest() {
+    if (CausynthSolrCluster.automatic()) CausynthSolrCluster.endTest();
+  }
+
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
   public static Boolean USE_PER_REPLICA_STATE =  Boolean.FALSE;
 

@@ -16,6 +16,8 @@
  */
 package org.apache.solr.common.cloud;
 
+import edu.uva.liftlab.graphchecker.runtime.MessageDoors;
+
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
@@ -870,10 +872,25 @@ public class SolrZkClient implements Closeable {
     public void process(final WatchedEvent event) {
       log.debug("Submitting job to respond to event {}", event);
       try {
+        // GraphChecker: each watch callback is a daemon turn of this client's node.
         if (watcher instanceof ConnectionManager) {
-          zkConnManagerCallbackExecutor.submit(() -> watcher.process(event));
+          zkConnManagerCallbackExecutor.submit(() -> {
+            long tick = MessageDoors.beginTick(SolrZkClient.this, "ZK_CONNECTION");
+            try {
+              watcher.process(event);
+            } finally {
+              MessageDoors.endTick(tick);
+            }
+          });
         } else {
-          zkCallbackExecutor.submit(() -> watcher.process(event));
+          zkCallbackExecutor.submit(() -> {
+            long tick = MessageDoors.beginTick(SolrZkClient.this, "ZK_WATCH");
+            try {
+              watcher.process(event);
+            } finally {
+              MessageDoors.endTick(tick);
+            }
+          });
         }
       } catch (RejectedExecutionException e) {
         // If not a graceful shutdown
