@@ -20,6 +20,7 @@ import java.util.Map;
 
 import org.apache.lucene.util.LuceneTestCase;
 import org.apache.solr.client.solrj.SolrQuery;
+import org.apache.solr.client.solrj.embedded.JettySolrRunner;
 import org.apache.solr.client.solrj.impl.CloudSolrClient;
 import org.apache.solr.client.solrj.impl.HttpSolrClient;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
@@ -42,6 +43,10 @@ import org.junit.Test;
  * distributes the update to every replica.  Had the leader's clock stood
  * before the expiry, it would have looked the deleted target up after
  * applying the update locally, and the update would reach the leader only.</p>
+ *
+ * <p>The rule's expiry is computed on the Overseer's node and checked on the
+ * source leader's, so the source's leader is placed on the node the Overseer
+ * is not on: the expiry check compares two nodes' clocks, as in the bug.</p>
  */
 @LuceneTestCase.Slow
 public class TestCausynthMigrateRuleTarget extends SolrCloudTestCase {
@@ -59,18 +64,28 @@ public class TestCausynthMigrateRuleTarget extends SolrCloudTestCase {
   public void updateAfterRuleExpiryAndTargetDeletion() throws Exception {
     CloudSolrClient client = cluster.getSolrClient();
     // The roles are the workload's, not the cluster's random choice: the
-    // source's leader is the replica created alone on the first node, its
-    // second replica joins on the other one, and so does the target.
-    String first = cluster.getJettySolrRunner(0).getNodeName();
-    String second = cluster.getJettySolrRunner(1).getNodeName();
+    // source's leader is the replica created alone on the node the Overseer
+    // is not on, its second replica joins on the Overseer's node, and so does
+    // the target.
+    String overseer = null;
+    String leader = null;
+    for (JettySolrRunner jetty : cluster.getJettySolrRunners()) {
+      if (jetty.getCoreContainer().getZkController().getOverseer().getUpdaterThread() != null) {
+        overseer = jetty.getNodeName();
+      } else {
+        leader = jetty.getNodeName();
+      }
+    }
+    assertNotNull("the Overseer's node", overseer);
+    assertNotNull("a node the Overseer is not on", leader);
     CollectionAdminRequest.createCollection(SOURCE, "conf", 1, 1)
-        .setCreateNodeSet(first).process(client);
+        .setCreateNodeSet(leader).process(client);
     cluster.waitForActiveCollection(SOURCE, 1, 1);
-    CollectionAdminRequest.addReplicaToShard(SOURCE, "shard1").setNode(second)
+    CollectionAdminRequest.addReplicaToShard(SOURCE, "shard1").setNode(overseer)
         .process(client);
     cluster.waitForActiveCollection(SOURCE, 1, 2);
     CollectionAdminRequest.createCollection(TARGET, "conf", 1, 1)
-        .setCreateNodeSet(second).process(client);
+        .setCreateNodeSet(overseer).process(client);
     cluster.waitForActiveCollection(TARGET, 1, 1);
 
     client.add(SOURCE, new SolrInputDocument("id", "a!1"));
