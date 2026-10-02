@@ -374,6 +374,18 @@ public class SolrZkClient implements Closeable {
     MessageDoors.stored(CAUSYNTH_ZK, path + "@" + version, this);
   }
 
+  /** Opens a write's bracket, closed by causynthStored in a finally around
+   *  the write and its causynthWrote: ZooKeeper notifies the version's
+   *  watchers before the write returns, and a callback that reads it
+   *  meanwhile waits until it is filed (MessageDoors#storing). */
+  private static long causynthStoring() {
+    return MessageDoors.storing(CAUSYNTH_ZK);
+  }
+
+  private static void causynthStored(long store) {
+    MessageDoors.storeEnded(CAUSYNTH_ZK, store);
+  }
+
   private void causynthRead(String path, Stat stat) {
     MessageDoors.fetched(CAUSYNTH_ZK, path + "@" + stat.getVersion(), this);
   }
@@ -384,12 +396,17 @@ public class SolrZkClient implements Closeable {
   public Stat setData(final String path, final byte data[], final int version, boolean retryOnConnLoss)
       throws KeeperException, InterruptedException {
     Stat written;
-    if (retryOnConnLoss) {
-      written = zkCmdExecutor.retryOperation(() -> keeper.setData(path, data, version));
-    } else {
-      written = keeper.setData(path, data, version);
+    long store = causynthStoring();
+    try {
+      if (retryOnConnLoss) {
+        written = zkCmdExecutor.retryOperation(() -> keeper.setData(path, data, version));
+      } else {
+        written = keeper.setData(path, data, version);
+      }
+      causynthWrote(path, written.getVersion());
+    } finally {
+      causynthStored(store);
     }
-    causynthWrote(path, written.getVersion());
     return written;
   }
 
@@ -436,14 +453,19 @@ public class SolrZkClient implements Closeable {
       final CreateMode createMode, boolean retryOnConnLoss) throws KeeperException,
       InterruptedException {
     String created;
-    if (retryOnConnLoss) {
-      created = zkCmdExecutor.retryOperation(() -> keeper.create(path, data, zkACLProvider.getACLsToAdd(path),
-          createMode));
-    } else {
-      List<ACL> acls = zkACLProvider.getACLsToAdd(path);
-      created = keeper.create(path, data, acls, createMode);
+    long store = causynthStoring();
+    try {
+      if (retryOnConnLoss) {
+        created = zkCmdExecutor.retryOperation(() -> keeper.create(path, data, zkACLProvider.getACLsToAdd(path),
+            createMode));
+      } else {
+        List<ACL> acls = zkACLProvider.getACLsToAdd(path);
+        created = keeper.create(path, data, acls, createMode);
+      }
+      causynthWrote(created, 0);
+    } finally {
+      causynthStored(store);
     }
-    causynthWrote(created, 0);
     return created;
   }
 
@@ -569,13 +591,23 @@ public class SolrZkClient implements Closeable {
           final CreateMode finalMode = mode;
           final byte[] finalBytes = bytes;
           zkCmdExecutor.retryOperation(() -> {
-            keeper.create(currentPath, finalBytes, zkACLProvider.getACLsToAdd(currentPath), finalMode);
-            causynthWrote(currentPath, 0);
+            long store = causynthStoring();
+            try {
+              keeper.create(currentPath, finalBytes, zkACLProvider.getACLsToAdd(currentPath), finalMode);
+              causynthWrote(currentPath, 0);
+            } finally {
+              causynthStored(store);
+            }
             return null;
           });
         } else {
-          keeper.create(currentPath, bytes, zkACLProvider.getACLsToAdd(currentPath), mode);
-          causynthWrote(currentPath, 0);
+          long store = causynthStoring();
+          try {
+            keeper.create(currentPath, bytes, zkACLProvider.getACLsToAdd(currentPath), mode);
+            causynthWrote(currentPath, 0);
+          } finally {
+            causynthStored(store);
+          }
         }
       } catch (NoAuthException e) {
         // in auth cases, we may not have permission for an earlier part of a path, which is fine
@@ -632,19 +664,24 @@ public class SolrZkClient implements Closeable {
 
   public List<OpResult> multi(final Iterable<Op> ops, boolean retryOnConnLoss) throws InterruptedException, KeeperException  {
     List<OpResult> results;
-    if (retryOnConnLoss) {
-      results = zkCmdExecutor.retryOperation(() -> keeper.multi(ops));
-    } else {
-      results = keeper.multi(ops);
-    }
-    java.util.Iterator<Op> op = ops.iterator();
-    for (OpResult result : results) {
-      String path = op.hasNext() ? op.next().getPath() : null;
-      if (result instanceof OpResult.CreateResult) {
-        causynthWrote(((OpResult.CreateResult) result).getPath(), 0);
-      } else if (result instanceof OpResult.SetDataResult && path != null) {
-        causynthWrote(path, ((OpResult.SetDataResult) result).getStat().getVersion());
+    long store = causynthStoring();
+    try {
+      if (retryOnConnLoss) {
+        results = zkCmdExecutor.retryOperation(() -> keeper.multi(ops));
+      } else {
+        results = keeper.multi(ops);
       }
+      java.util.Iterator<Op> op = ops.iterator();
+      for (OpResult result : results) {
+        String path = op.hasNext() ? op.next().getPath() : null;
+        if (result instanceof OpResult.CreateResult) {
+          causynthWrote(((OpResult.CreateResult) result).getPath(), 0);
+        } else if (result instanceof OpResult.SetDataResult && path != null) {
+          causynthWrote(path, ((OpResult.SetDataResult) result).getStat().getVersion());
+        }
+      }
+    } finally {
+      causynthStored(store);
     }
     return results;
   }
