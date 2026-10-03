@@ -147,6 +147,12 @@ public final class CausynthSolrCluster {
           zk == null ? null : zk.getZkClient(),
           zk == null ? null : zk.getZkStateReader(),
           zk == null ? null : zk.getOverseer());
+      if (zk != null) {
+        // The node's names in this run only: its node name (host and port) and its ZooKeeper
+        // session, which leader elections spell in the nodes they create.
+        MessageDoors.spelledAs(name, zk.getNodeName(),
+            Long.toString(zk.getZkClient().getSolrZooKeeper().getSessionId()));
+      }
     }
   }
 
