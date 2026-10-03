@@ -197,6 +197,22 @@ public class ZkStateReader implements SolrCloseable {
    */
   private final ConcurrentHashMap<String, LazyCollectionRef> lazyCollectionStates = new ConcurrentHashMap<>();
 
+  // GraphChecker: one refresh of a collection at a time, from its fetch to
+  // its apply (StateWatcher#refreshAndWatch).  Two watch events of one
+  // collection run on two zkCallback threads: a refresh that fetched
+  // state.json just before the collection was deleted, and applied it just
+  // after the deletion's refresh removed the collection, put it back in
+  // watchedCollectionStates (updateWatchedCollection adds a fetched state
+  // when none is held), and no later event removes it -- the node is gone.
+  // A waitForState for the deletion (DeleteCollectionCmd) then waits forever
+  // in an automatic cluster (CausynthBounds), and times out after 60 s
+  // natively.  Serialized, the last fetch is the last apply.
+  private final ConcurrentHashMap<String, Object> collectionRefreshLocks = new ConcurrentHashMap<>();
+
+  private Object collectionRefreshLock(String coll) {
+    return collectionRefreshLocks.computeIfAbsent(coll, k -> new Object());
+  }
+
   /**
    * Collection properties being actively watched
    */
@@ -1382,8 +1398,10 @@ public class ZkStateReader implements SolrCloseable {
           }
         }
 
-        DocCollection newState = fetchCollectionState(coll, this, collectionPath);
-        updateWatchedCollection(coll, newState);
+        synchronized (collectionRefreshLock(coll)) {
+          DocCollection newState = fetchCollectionState(coll, this, collectionPath);
+          updateWatchedCollection(coll, newState);
+        }
         synchronized (getUpdateLock()) {
           constructState(Collections.singleton(coll));
         }
@@ -1403,13 +1421,15 @@ public class ZkStateReader implements SolrCloseable {
       Stat stat = new Stat();
       List<String> replicaStates = null;
       try {
-        replicaStates = zkClient.getChildren(collectionPath, this, stat, true);
-        PerReplicaStates newStates = new PerReplicaStates(collectionPath, stat.getCversion(), replicaStates);
-        DocCollection oldState = watchedCollectionStates.get(coll);
-        final DocCollection newState = oldState != null ?
-            oldState.copyWith(newStates) :
-            fetchCollectionState(coll, null, collectionPath);
-        updateWatchedCollection(coll, newState);
+        synchronized (collectionRefreshLock(coll)) {
+          replicaStates = zkClient.getChildren(collectionPath, this, stat, true);
+          PerReplicaStates newStates = new PerReplicaStates(collectionPath, stat.getCversion(), replicaStates);
+          DocCollection oldState = watchedCollectionStates.get(coll);
+          final DocCollection newState = oldState != null ?
+              oldState.copyWith(newStates) :
+              fetchCollectionState(coll, null, collectionPath);
+          updateWatchedCollection(coll, newState);
+        }
         synchronized (getUpdateLock()) {
           constructState(Collections.singleton(coll));
         }
