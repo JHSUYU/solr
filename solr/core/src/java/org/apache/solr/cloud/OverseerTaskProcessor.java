@@ -280,6 +280,12 @@ public class OverseerTaskProcessor implements Runnable, Closeable {
             synchronized (runningZKTasks) {
               if (runningZKTasks.contains(head.getId())) continue;
             }
+            // GraphChecker: each task the loop takes is a turn of the Overseer
+            // of its own, serving the task's queue item, so what it decides --
+            // markTaskAsRunning's ZooKeeper write door -- is an occurrence's.
+            long causynthTick = MessageDoors.beginTick(zkStateReader, "OVERSEER_TASK_QUEUE");
+            try {
+            MessageDoors.consumed(SolrZkClient.CAUSYNTH_ZK, head.getId() + "@0");
             final ZkNodeProps message = ZkNodeProps.load(head.getBytes());
             final String asyncId = message.getStr(ASYNC);
             if (hasLeftOverItems) {
@@ -330,6 +336,9 @@ public class OverseerTaskProcessor implements Runnable, Closeable {
             Runner runner = new Runner(messageHandler, message,
                 operation, head, lock);
             tpe.execute(runner);
+            } finally {
+              MessageDoors.endTick(causynthTick);
+            }
           }
 
         } catch (KeeperException e) {
@@ -516,6 +525,8 @@ public class OverseerTaskProcessor implements Runnable, Closeable {
       // registered, so the thread alone names no node.
       long causynthTick = MessageDoors.beginTick(zkStateReader, "OVERSEER_TASK");
       try {
+        // GraphChecker: the task's queue item is the message this turn serves.
+        MessageDoors.consumed(SolrZkClient.CAUSYNTH_ZK, head.getId() + "@0");
         runTask();
       } finally {
         MessageDoors.endTick(causynthTick);

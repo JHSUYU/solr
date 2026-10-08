@@ -55,6 +55,7 @@ import org.apache.solr.common.SolrException.ErrorCode;
 import org.apache.solr.common.params.AutoScalingParams;
 import org.apache.solr.common.params.CollectionAdminParams;
 import org.apache.solr.common.params.CoreAdminParams;
+import edu.uva.liftlab.graphchecker.runtime.MessageDoors;
 import org.apache.solr.common.util.CausynthBounds;
 import org.apache.solr.common.util.ExecutorUtil;
 import org.apache.solr.common.util.ObjectReleaseTracker;
@@ -668,7 +669,8 @@ public class ZkStateReader implements SolrCloseable {
     try {
       final Stat stat = new Stat();
       final byte[] data = zkClient.getData(CLUSTER_STATE, watcher, stat, true);
-      final ClusterState loadedData = ClusterState.load(stat.getVersion(), data, emptySet(), CLUSTER_STATE, null);
+      final ClusterState loadedData = causynthDecoded(CLUSTER_STATE, stat.getVersion(),
+          ClusterState.load(stat.getVersion(), data, emptySet(), CLUSTER_STATE, null));
       synchronized (getUpdateLock()) {
         if (this.legacyClusterStateVersion >= stat.getVersion()) {
           // Nothing to do, someone else updated same or newer.
@@ -1660,8 +1662,9 @@ public class ZkStateReader implements SolrCloseable {
       try {
         Stat stat = new Stat();
         byte[] data = zkClient.getData(collectionPath, watcher, stat, true);
-        ClusterState state = ClusterState.load (stat.getVersion(), data,
-            Collections.emptySet(), collectionPath, new PerReplicaStates.LazyPrsSupplier(zkClient, collectionPath));
+        ClusterState state = causynthDecoded(collectionPath, stat.getVersion(),
+            ClusterState.load (stat.getVersion(), data,
+            Collections.emptySet(), collectionPath, new PerReplicaStates.LazyPrsSupplier(zkClient, collectionPath)));
         ClusterState.CollectionRef collectionRef = state.getCollectionStates().get(coll);
         return collectionRef == null ? null : collectionRef.get();
       } catch (KeeperException.NoNodeException e) {
@@ -1677,6 +1680,16 @@ public class ZkStateReader implements SolrCloseable {
         return null;
       }
     }
+  }
+
+  /**
+   * GraphChecker: the objects a fetch of {@code path} at {@code version} was
+   * parsed into hold that version of the store (MessageDoors#decoded), so a
+   * guard reading one reads the version, whichever thread later reads it.
+   */
+  private static <T> T causynthDecoded(String path, int version, T product) {
+    MessageDoors.decoded(SolrZkClient.CAUSYNTH_ZK, path + "@" + version, product);
+    return product;
   }
 
   public static String getCollectionPathRoot(String coll) {
@@ -2279,7 +2292,7 @@ public class ZkStateReader implements SolrCloseable {
         try {
           try {
             final Stat stat = getZkClient().setData(ALIASES, modAliasesJson, curAliases.getZNodeVersion(), true);
-            setIfNewer(Aliases.fromJSON(modAliasesJson, stat.getVersion()));
+            setIfNewer(causynthDecoded(ALIASES, stat.getVersion(), Aliases.fromJSON(modAliasesJson, stat.getVersion())));
             return;
           } catch (KeeperException.BadVersionException e) {
             log.debug("{}", e, e);
@@ -2316,7 +2329,7 @@ public class ZkStateReader implements SolrCloseable {
       zkClient.getSolrZooKeeper().sync(ALIASES, null, null);
       Stat stat = new Stat();
       final byte[] data = zkClient.getData(ALIASES, null, stat, true);
-      return setIfNewer(Aliases.fromJSON(data, stat.getVersion()));
+      return setIfNewer(causynthDecoded(ALIASES, stat.getVersion(), Aliases.fromJSON(data, stat.getVersion())));
     }
 
     // ZK Watcher interface
@@ -2333,7 +2346,7 @@ public class ZkStateReader implements SolrCloseable {
         Stat stat = new Stat();
         final byte[] data = zkClient.getData(ALIASES, this, stat, true);
         // note: it'd be nice to avoid possibly needlessly parsing if we don't update aliases but not a big deal
-        setIfNewer(Aliases.fromJSON(data, stat.getVersion()));
+        setIfNewer(causynthDecoded(ALIASES, stat.getVersion(), Aliases.fromJSON(data, stat.getVersion())));
       } catch (NoNodeException e) {
         // /aliases.json will not always exist
       } catch (KeeperException.ConnectionLossException | KeeperException.SessionExpiredException e) {
