@@ -204,7 +204,7 @@ public class BackupCmd implements OverseerCollectionMessageHandler.Cmd {
             .findFirst();
 
     if (!r.isPresent()) {
-      throw new SolrException(ErrorCode.SERVER_ERROR,
+      throw new @edu.uva.liftlab.graphchecker.annotation.CausynthExceptionTarget("solr-bugs-snapshot-no-active") SolrException(ErrorCode.SERVER_ERROR,
               "Unable to find any live replica with a snapshot named " + snapshotMeta.getName() + " for shard " + slice.getName());
     }
 

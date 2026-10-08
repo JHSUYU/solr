@@ -164,7 +164,7 @@ public class SplitShardCmd implements OverseerCollectionMessageHandler.Cmd {
     Stat leaderZnodeStat = zkStateReader.getZkClient().exists(ZkStateReader.LIVE_NODES_ZKNODE + "/" + parentShardLeader.getNodeName(), null, true);
     if (leaderZnodeStat == null)  {
       // we just got to know the leader but its live node is gone already!
-      throw new SolrException(SolrException.ErrorCode.SERVER_ERROR, "The shard leader node: " + parentShardLeader.getNodeName() + " is not live anymore!");
+      throw new @edu.uva.liftlab.graphchecker.annotation.CausynthExceptionTarget("solr-adhoc-14") SolrException(SolrException.ErrorCode.SERVER_ERROR, "The shard leader node: " + parentShardLeader.getNodeName() + " is not live anymore!");
     }
 
     List<DocRouter.Range> subRanges = new ArrayList<>();

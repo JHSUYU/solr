@@ -130,7 +130,7 @@ public class RoutedAliasUpdateProcessor extends UpdateRequestProcessor {
     ZkController zkController = req.getCoreContainer().getZkController();
     final Map<String, String> aliasProperties = zkController.getZkStateReader().getAliases().getCollectionAliasProperties(aliasName);
     if (aliasProperties.isEmpty()) {
-      throw RoutedAlias.newAliasMustExistException(aliasName); // if it did exist, we'd have a non-null map
+      throw new @edu.uva.liftlab.graphchecker.annotation.CausynthExceptionTarget("solr-adhoc-40") SolrException(SolrException.ErrorCode.SERVICE_UNAVAILABLE, "Routed alias " + aliasName + " appears to have been removed during request processing."); // if it did exist, we'd have a non-null map
     }
     return aliasProperties;
   }
@@ -244,7 +244,7 @@ public class RoutedAliasUpdateProcessor extends UpdateRequestProcessor {
     final Aliases aliases = zkController.getZkStateReader().getAliases();
     List<String> collections = aliases.getCollectionAliasListMap().get(getAliasName());
     if (collections == null) {
-      throw RoutedAlias.newAliasMustExistException(getAliasName());
+      throw new @edu.uva.liftlab.graphchecker.annotation.CausynthExceptionTarget("solr-adhoc-39") SolrException(SolrException.ErrorCode.SERVICE_UNAVAILABLE, "Routed alias " + getAliasName() + " appears to have been removed during request processing.");
     }
     return collections.stream().map(this::lookupShardLeaderOfCollection).collect(Collectors.toList());
   }

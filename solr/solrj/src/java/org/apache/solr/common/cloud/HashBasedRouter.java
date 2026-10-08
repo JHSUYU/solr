@@ -64,7 +64,7 @@ public abstract class HashBasedRouter extends DocRouter {
       Range range = slice.getRange();
       if (range != null && range.includes(hash)) return slice;
     }
-    throw new SolrException(SolrException.ErrorCode.BAD_REQUEST, "No active slice servicing hash code " + Integer.toHexString(hash) + " in " + collection.getName());
+    throw new @edu.uva.liftlab.graphchecker.annotation.CausynthExceptionTarget("solr-bugs-restore-construction") SolrException(SolrException.ErrorCode.BAD_REQUEST, "No active slice servicing hash code " + Integer.toHexString(hash) + " in " + collection.getName());
   }
 
 

@@ -183,7 +183,7 @@ enum CoreAdminOperation implements CoreAdminOp {
         throw new SolrException(ErrorCode.BAD_REQUEST, "Core [" + cname + "] does not exist");
       UpdateLog updateLog = core.getUpdateHandler().getUpdateLog();
       if (updateLog.getState() != UpdateLog.State.ACTIVE) {
-        throw new SolrException(ErrorCode.SERVER_ERROR, "Core " + cname + " not in active state");
+        throw new @edu.uva.liftlab.graphchecker.annotation.CausynthExceptionTarget("solr-bugs-migrate-buffer-leak") SolrException(ErrorCode.SERVER_ERROR, "Core " + cname + " not in active state");
       }
       updateLog.bufferUpdates();
       it.rsp.add("core", cname);
