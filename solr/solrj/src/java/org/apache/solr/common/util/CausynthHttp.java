@@ -56,14 +56,17 @@ public final class CausynthHttp {
   /**
    * The operation {@code request} asks for: its path (a query's handler,
    * its {@code qt}) and, for an admin request, its action, e.g. {@code
-   * /admin/collections:REQUESTSTATUS}.  A constant of the request, alike in
-   * every run; the collection or core is no part of it.
+   * admin.collections:REQUESTSTATUS} -- the path's segments joined by dots,
+   * since a verb is part of a site and spells no {@code /}.  A constant of
+   * the request, alike in every run; the collection or core is no part of
+   * it.
    */
   public static String verb(SolrRequest<?> request) {
-    String path = request.getPath();
+    String path = request.getPath() == null ? "" : request.getPath();
+    while (path.startsWith("/")) path = path.substring(1);
     String action = request.getParams() == null ? null
         : request.getParams().get("action");
-    return (path == null ? "" : path) + (action == null ? "" : ":" + action);
+    return path.replace('/', '.') + (action == null ? "" : ":" + action);
   }
 
   /**
