@@ -898,7 +898,7 @@ public abstract class BaseCloudSolrClient extends SolrClient {
         // track the version of state we're using on the client side using the _stateVer_ param
         DocCollection coll = getDocCollection(requestedCollection, null);
         if (coll == null) {
-          throw new SolrException(SolrException.ErrorCode.BAD_REQUEST, "Collection not found: " + requestedCollection);
+          throw new @edu.uva.liftlab.graphchecker.annotation.CausynthExceptionTarget("solr-bugs-tra-start-overwrite") SolrException(SolrException.ErrorCode.BAD_REQUEST, "Collection not found: " + requestedCollection);
         }
         int collVer = coll.getZNodeVersion();
         if (coll.getStateFormat()>1) {

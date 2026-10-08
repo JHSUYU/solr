@@ -114,7 +114,7 @@ public class MaintainRoutedAliasCmd extends AliasCmd {
     }
     final RoutedAlias ra = RoutedAlias.fromProps(aliasName, aliasMetadata);
     if (ra == null) {
-      throw new SolrException(SolrException.ErrorCode.SERVER_ERROR, "MaintainRoutedAlias called on non-routed alias");
+      throw new @edu.uva.liftlab.graphchecker.annotation.CausynthExceptionTarget("solr-adhoc-10") SolrException(SolrException.ErrorCode.SERVER_ERROR, "MaintainRoutedAlias called on non-routed alias");
     }
 
     ra.updateParsedCollectionAliases(ocmh.zkStateReader, true);
