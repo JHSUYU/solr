@@ -257,24 +257,31 @@ public final class CausynthSolrCluster {
     }
   }
 
-  /** {@code jettys} not yet named, named {@code <prefix>/node<i>} in the order of their homes. */
+  /**
+   * {@code jettys} not yet named, named {@code <prefix>/node<i>} in the order of their homes;
+   * every one up states its run-only names again, so a restarted node's port and session are
+   * its own too.
+   */
   private static void registerNodes(String prefix, List<JettySolrRunner> jettys) {
     List<JettySolrRunner> started = new ArrayList<>(jettys);
     started.sort(Comparator.comparing(JettySolrRunner::getSolrHome));
     for (JettySolrRunner jetty : started) {
-      if (NODES.containsKey(jetty) || jetty.getCoreContainer() == null) {
+      CoreContainer cores = jetty.getCoreContainer();
+      if (cores == null) {
         continue;
       }
-      String name = prefix + "/node" + NODES.size();
-      NODES.put(jetty, name);
-      CoreContainer cores = jetty.getCoreContainer();
       ZkController zk = cores.getZkController();
-      MessageDoors.registerNode(jetty, NODE, "SOLR_NODE", name,
-          cores, jetty.getSolrDispatchFilter(), cores.getUpdateShardHandler(),
-          cores.getShardHandlerFactory(), zk,
-          zk == null ? null : zk.getZkClient(),
-          zk == null ? null : zk.getZkStateReader(),
-          zk == null ? null : zk.getOverseer());
+      String name = NODES.get(jetty);
+      if (name == null) {
+        name = prefix + "/node" + NODES.size();
+        NODES.put(jetty, name);
+        MessageDoors.registerNode(jetty, NODE, "SOLR_NODE", name,
+            cores, jetty.getSolrDispatchFilter(), cores.getUpdateShardHandler(),
+            cores.getShardHandlerFactory(), zk,
+            zk == null ? null : zk.getZkClient(),
+            zk == null ? null : zk.getZkStateReader(),
+            zk == null ? null : zk.getOverseer());
+      }
       if (zk != null) {
         // The node's names in this run only: its node name (host and port) and its ZooKeeper
         // session, which leader elections spell in the nodes they create.

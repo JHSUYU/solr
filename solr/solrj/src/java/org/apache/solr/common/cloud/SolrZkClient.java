@@ -261,13 +261,20 @@ public class SolrZkClient implements Closeable {
 
   public void delete(final String path, final int version, boolean retryOnConnLoss)
       throws InterruptedException, KeeperException {
-    if (retryOnConnLoss) {
-      zkCmdExecutor.retryOperation(() -> {
+    // GraphChecker: a delete moves its parent's child counter, which numbers
+    // the next sequential create there: it takes its turn with them.
+    long store = MessageDoors.storingChild(CAUSYNTH_ZK, path);
+    try {
+      if (retryOnConnLoss) {
+        zkCmdExecutor.retryOperation(() -> {
+          keeper.delete(path, version);
+          return null;
+        });
+      } else {
         keeper.delete(path, version);
-        return null;
-      });
-    } else {
-      keeper.delete(path, version);
+      }
+    } finally {
+      causynthStored(store);
     }
   }
 
@@ -380,8 +387,23 @@ public class SolrZkClient implements Closeable {
    *  its causynthWrote: ZooKeeper notifies the version's watchers before the
    *  write returns, and a callback that reads a version there meanwhile
    *  waits, a bound at most, until it is filed (MessageDoors#storing). */
-  private static long causynthStoring(String path) {
-    return MessageDoors.storing(CAUSYNTH_ZK, path);
+  private static long causynthStoring(String path, CreateMode mode) {
+    // A sequential create takes the next number of its parent: its turn is
+    // the parent's (MessageDoors#storingChild).
+    return mode.isSequential() ? MessageDoors.storingChild(CAUSYNTH_ZK, path)
+        : MessageDoors.storing(CAUSYNTH_ZK, path);
+  }
+
+  /** A multi's operation's bracket, by what it writes. */
+  private static long causynthStoring(Op op) {
+    if (op.getType() == ZooDefs.OpCode.delete) {
+      return MessageDoors.storingChild(CAUSYNTH_ZK, op.getPath());
+    }
+    if (op instanceof Op.Create) {
+      int flags = ((org.apache.zookeeper.proto.CreateRequest) op.toRequestRecord()).getFlags();
+      return causynthStoring(op.getPath(), CreateMode.fromFlag(flags, CreateMode.PERSISTENT));
+    }
+    return MessageDoors.storing(CAUSYNTH_ZK, op.getPath());
   }
 
   private static void causynthStored(long store) {
@@ -398,7 +420,7 @@ public class SolrZkClient implements Closeable {
   public Stat setData(final String path, final byte data[], final int version, boolean retryOnConnLoss)
       throws KeeperException, InterruptedException {
     Stat written;
-    long store = causynthStoring(path);
+    long store = MessageDoors.storing(CAUSYNTH_ZK, path);
     try {
       if (retryOnConnLoss) {
         written = zkCmdExecutor.retryOperation(() -> keeper.setData(path, data, version));
@@ -455,7 +477,7 @@ public class SolrZkClient implements Closeable {
       final CreateMode createMode, boolean retryOnConnLoss) throws KeeperException,
       InterruptedException {
     String created;
-    long store = causynthStoring(path);
+    long store = causynthStoring(path, createMode);
     try {
       if (retryOnConnLoss) {
         created = zkCmdExecutor.retryOperation(() -> keeper.create(path, data, zkACLProvider.getACLsToAdd(path),
@@ -593,20 +615,20 @@ public class SolrZkClient implements Closeable {
           final CreateMode finalMode = mode;
           final byte[] finalBytes = bytes;
           zkCmdExecutor.retryOperation(() -> {
-            long store = causynthStoring(currentPath);
+            long store = causynthStoring(currentPath, finalMode);
             try {
-              keeper.create(currentPath, finalBytes, zkACLProvider.getACLsToAdd(currentPath), finalMode);
-              causynthWrote(currentPath, 0);
+              String made = keeper.create(currentPath, finalBytes, zkACLProvider.getACLsToAdd(currentPath), finalMode);
+              causynthWrote(made, 0);
             } finally {
               causynthStored(store);
             }
             return null;
           });
         } else {
-          long store = causynthStoring(currentPath);
+          long store = causynthStoring(currentPath, mode);
           try {
-            keeper.create(currentPath, bytes, zkACLProvider.getACLsToAdd(currentPath), mode);
-            causynthWrote(currentPath, 0);
+            String made = keeper.create(currentPath, bytes, zkACLProvider.getACLsToAdd(currentPath), mode);
+            causynthWrote(made, 0);
           } finally {
             causynthStored(store);
           }
@@ -668,7 +690,7 @@ public class SolrZkClient implements Closeable {
     List<OpResult> results;
     List<Long> stores = new ArrayList<>();
     for (Op each : ops) {
-      stores.add(causynthStoring(each.getPath()));
+      stores.add(causynthStoring(each));
     }
     try {
       if (retryOnConnLoss) {
