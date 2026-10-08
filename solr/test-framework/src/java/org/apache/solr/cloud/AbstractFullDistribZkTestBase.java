@@ -83,6 +83,7 @@ import org.apache.solr.common.params.ModifiableSolrParams;
 import org.apache.solr.common.params.SolrParams;
 import org.apache.solr.common.util.ExecutorUtil;
 import org.apache.solr.common.util.IOUtils;
+import org.apache.solr.common.util.CausynthBounds;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.common.util.SolrNamedThreadFactory;
 import org.apache.solr.common.util.StrUtils;
@@ -352,13 +353,23 @@ public abstract class AbstractFullDistribZkTestBase extends AbstractDistribZkTes
       // NOTE: we are skipping creation of the chaos monkey by returning here
       cloudClient = controlClientCloud; // temporary - some code needs/uses
       // cloudClient
+      causynthRegisterServers();
       return;
     }
 
     initCloud();
 
     createJettys(numServers);
-    
+    causynthRegisterServers();
+  }
+
+  /** GraphChecker: the servers are up; an automatic cluster registers them and opens its window. */
+  private void causynthRegisterServers() {
+    if (CausynthBounds.automatic()) {
+      List<JettySolrRunner> servers = new ArrayList<>(jettys);
+      servers.add(controlJetty);
+      CausynthSolrCluster.registerServers(servers, cloudClient);
+    }
   }
 
   public static void waitForCollection(ZkStateReader reader, String collection, int slices) throws Exception {
@@ -1730,6 +1741,7 @@ public abstract class AbstractFullDistribZkTestBase extends AbstractDistribZkTes
   
   @Override
   protected void destroyServers() throws Exception {
+    if (CausynthBounds.automatic()) CausynthSolrCluster.shutdownServers();
     ExecutorService customThreadPool = ExecutorUtil.newMDCAwareCachedThreadPool(new SolrNamedThreadFactory("closeThreadPool"));
     
     customThreadPool.submit(() -> IOUtils.closeQuietly(commonCloudSolrClient));

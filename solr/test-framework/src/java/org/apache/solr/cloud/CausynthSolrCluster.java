@@ -61,6 +61,7 @@ public final class CausynthSolrCluster {
   private static final Map<JettySolrRunner, String> NODES = new IdentityHashMap<>();
   private static MiniSolrCloudCluster windowCluster;
   private static long suiteRequest;
+  private static long serversRequest;
   private static long testRequest;
   private static int lastPort;
 
@@ -168,6 +169,46 @@ public final class CausynthSolrCluster {
     if (testRequest != 0L) {
       MessageDoors.endRequest(testRequest, "test");
       testRequest = 0L;
+      MessageDoors.stopRecording();
+    }
+  }
+
+  /**
+   * The servers an AbstractFullDistribZkTestBase test built for itself (no
+   * MiniSolrCloudCluster), once they are up: its nodes registered, named in
+   * the order of their homes ({@code servers0/node<i>}), and its cloud client,
+   * and the window opened with a request of the thread that built them, the
+   * test's.  The test's own timeouts stay: such a test partitions nodes and
+   * waits on its bounds.
+   */
+  public static synchronized void registerServers(List<JettySolrRunner> jettys, CloudSolrClient client) {
+    List<JettySolrRunner> started = new ArrayList<>(jettys);
+    started.sort(Comparator.comparing(JettySolrRunner::getSolrHome));
+    for (JettySolrRunner jetty : started) {
+      if (NODES.containsKey(jetty) || jetty.getCoreContainer() == null) {
+        continue;
+      }
+      String name = "servers0/node" + NODES.size();
+      NODES.put(jetty, name);
+      CoreContainer cores = jetty.getCoreContainer();
+      ZkController zk = cores.getZkController();
+      MessageDoors.registerNode(jetty, NODE, "SOLR_NODE", name,
+          cores, jetty.getSolrDispatchFilter(), cores.getUpdateShardHandler(),
+          cores.getShardHandlerFactory(), zk, zk.getZkClient(), zk.getZkStateReader(), zk.getOverseer());
+      MessageDoors.spelledAs(name, zk.getNodeName(),
+          Long.toString(zk.getZkClient().getSolrZooKeeper().getSessionId()));
+    }
+    MessageDoors.registerNode(client, "EXTERNAL_APP", "SOLR_CLIENT", "servers0/client0",
+        client.getLbClient(), client.getZkStateReader(), client.getZkStateReader().getZkClient());
+    MessageDoors.startRecording();
+    serversRequest = MessageDoors.beginRequest(client, "test");
+  }
+
+  /** The servers' test is over: its request ends, and so does the window. */
+  public static synchronized void shutdownServers() {
+    if (serversRequest != 0L) {
+      MessageDoors.endRequest(serversRequest, "test");
+      serversRequest = 0L;
       MessageDoors.stopRecording();
     }
   }
