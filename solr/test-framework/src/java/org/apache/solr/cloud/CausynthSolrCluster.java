@@ -20,13 +20,16 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 
 import edu.uva.liftlab.graphchecker.runtime.MessageDoors;
 import org.apache.solr.client.solrj.embedded.JettySolrRunner;
+import org.apache.solr.client.solrj.impl.BaseCloudSolrClient;
 import org.apache.solr.client.solrj.impl.CloudSolrClient;
+import org.apache.solr.client.solrj.impl.ZkClientClusterStateProvider;
 import org.apache.solr.common.util.CausynthBounds;
 import org.apache.solr.core.CoreContainer;
 
@@ -37,11 +40,14 @@ import org.apache.solr.core.CoreContainer;
  *
  * <p>With {@link CausynthBounds#AUTOMATIC} set, any cluster test is a workload as it is
  * written.  Each cluster registers its nodes as it comes up ({@code
- * auto<n>/node<i>}, in the order of their names) and its client; the first
+ * auto<n>/node<i>}, in the order of their names) and its client, and every
+ * cloud client a test builds against it ({@link #registerClient}); the first
  * one opens the window with one request on the thread that built it, and the
  * test method runs under a request of its own ({@link #beginTest}), since
- * the randomized runner gives a test a thread of its own.  The window closes
- * with the test ({@link #endTest}): the cluster's teardown is not recorded.</p>
+ * the randomized runner gives a test a thread of its own -- opened when the
+ * window opens if the test built its cluster in its own {@code @Before}.  The
+ * window closes with the test ({@link #endTest}) or with its cluster's
+ * shutdown, whichever comes first: the teardown is not recorded.</p>
  *
  * <p>The same world at the window: every node the cluster starts comes up in
  * turn, so the first one is the Overseer, on a port above the one before it,
@@ -59,9 +65,13 @@ public final class CausynthSolrCluster {
 
   private static final Map<MiniSolrCloudCluster, String> CLUSTERS = new IdentityHashMap<>();
   private static final Map<JettySolrRunner, String> NODES = new IdentityHashMap<>();
-  private static MiniSolrCloudCluster windowCluster;
+  /** Per cluster prefix, the clients a test built against it. */
+  private static final Map<String, Integer> CLIENTS = new HashMap<>();
+  /** What opened the window: a cluster, or an AbstractFullDistribZkTestBase's servers. */
+  private static Object windowOwner;
+  private static CloudSolrClient windowClient;
+  private static boolean testRunning;
   private static long suiteRequest;
-  private static long serversRequest;
   private static long testRequest;
   private static int lastPort;
 
@@ -114,25 +124,142 @@ public final class CausynthSolrCluster {
       prefix = "auto" + CLUSTERS.size();
       CLUSTERS.put(cluster, prefix);
     }
-    registerStartedNodes(cluster);
+    registerNodes(prefix, cluster.getJettySolrRunners());
     CloudSolrClient client = cluster.getSolrClient();
-    if (windowCluster == null && client != null) {
-      windowCluster = cluster;
-      MessageDoors.registerNode(client, "EXTERNAL_APP", "SOLR_CLIENT", prefix + "/client0",
-          client.getLbClient(), client.getZkStateReader(),
-          client.getZkStateReader().getZkClient());
-      MessageDoors.startRecording();
-      suiteRequest = MessageDoors.beginRequest(client, "suite");
+    if (windowOwner == null && client != null) {
+      openWindow(cluster, prefix, client);
     }
   }
 
-  /** The nodes a registered cluster started since, named in the order of their names. */
+  /** The nodes a registered cluster started since. */
   public static synchronized void registerStartedNodes(MiniSolrCloudCluster cluster) {
     String prefix = CLUSTERS.get(cluster);
+    if (prefix != null) {
+      registerNodes(prefix, cluster.getJettySolrRunners());
+    }
+  }
+
+  /**
+   * The servers an AbstractFullDistribZkTestBase test built for itself (no
+   * MiniSolrCloudCluster), once they are up: registered as a cluster's are
+   * ({@code servers0}), and the window opened on the thread that built them,
+   * the test's, with the test running.  The test's own timeouts stay: such a
+   * test partitions nodes and waits on its bounds.
+   */
+  public static synchronized void registerServers(List<JettySolrRunner> jettys, CloudSolrClient client) {
+    registerNodes("servers0", jettys);
+    if (windowOwner == null) {
+      openWindow(jettys, "servers0", client);
+      beginTest();
+    }
+  }
+
+  /**
+   * A cloud client a test built against an automatic cluster -- through
+   * SolrTestCaseJ4's builder, which may point it at the cluster's ZooKeeper
+   * or at its nodes -- is a client node of that cluster ({@code
+   * <cluster>/client<k>}, k in the order they were built): its requests and
+   * its state reader's watchers are its own, not the test thread's.
+   */
+  public static synchronized void registerClient(MiniSolrCloudCluster built,
+      BaseCloudSolrClient client, Object lbClient) {
+    MiniSolrCloudCluster cluster = built;
+    if (cluster == null) {
+      for (MiniSolrCloudCluster known : CLUSTERS.keySet()) {
+        if (client.getClusterStateProvider() instanceof ZkClientClusterStateProvider
+            && client.getZkHost().equals(known.getZkServer().getZkAddress())) {
+          cluster = known;
+        }
+      }
+    }
+    String prefix = cluster == null ? null : CLUSTERS.get(cluster);
     if (prefix == null) {
       return;
     }
-    List<JettySolrRunner> started = new ArrayList<>(cluster.getJettySolrRunners());
+    int clients = CLIENTS.merge(prefix, 1, Integer::sum);
+    registerClientNode(prefix + "/client" + clients, client, lbClient);
+  }
+
+  /** The test method's own request, on the thread the runner gives it, once
+   *  the window is open: here, or when the test's cluster comes up in its
+   *  own {@code @Before} ({@link #openWindow}). */
+  public static synchronized void beginTest() {
+    testRunning = true;
+    if (windowOwner != null && testRequest == 0L) {
+      testRequest = MessageDoors.beginRequest(windowClient, "test");
+    }
+  }
+
+  /** The test is over: its request ends, and so does the window. */
+  public static synchronized void endTest() {
+    testRunning = false;
+    if (testRequest != 0L) {
+      MessageDoors.endRequest(testRequest, "test");
+      testRequest = 0L;
+      MessageDoors.stopRecording();
+    }
+  }
+
+  /** The servers' test is over. */
+  public static synchronized void shutdownServers() {
+    closeWindow();
+  }
+
+  /** The window's suite request ends when its cluster shuts down. */
+  public static synchronized void shutdownAutomatically(MiniSolrCloudCluster cluster) {
+    if (cluster == windowOwner) {
+      closeWindow();
+    }
+  }
+
+  /**
+   * The window opens with the first cluster or servers up: their client
+   * registered ({@code <prefix>/client0}), recording started, and one
+   * request on the thread that built them; a test already running (its
+   * cluster built in its own {@code @Before}, after the runner began it)
+   * gets its request now.
+   */
+  private static void openWindow(Object owner, String prefix, CloudSolrClient client) {
+    windowOwner = owner;
+    windowClient = client;
+    registerClientNode(prefix + "/client0", client, client.getLbClient());
+    MessageDoors.startRecording();
+    suiteRequest = MessageDoors.beginRequest(client, "suite");
+    if (testRunning) {
+      beginTest();
+    }
+  }
+
+  /**
+   * The window's owner shuts down: the test's request ends first if it
+   * still stands (a test that tears its cluster down in its own {@code
+   * @After}, before the runner ends it), so the teardown is not recorded,
+   * then the suite's.
+   */
+  private static void closeWindow() {
+    if (windowOwner == null) {
+      return;
+    }
+    endTest();
+    MessageDoors.endRequest(suiteRequest, "suite");
+    windowOwner = null;
+    windowClient = null;
+  }
+
+  /** A client node: the client, its load balancer and, on ZooKeeper, its state reader and ZK client. */
+  private static void registerClientNode(String name, BaseCloudSolrClient client, Object lbClient) {
+    if (client.getClusterStateProvider() instanceof ZkClientClusterStateProvider) {
+      MessageDoors.registerNode(client, "EXTERNAL_APP", "SOLR_CLIENT", name,
+          lbClient, client.getZkStateReader(),
+          client.getZkStateReader().getZkClient());
+    } else {
+      MessageDoors.registerNode(client, "EXTERNAL_APP", "SOLR_CLIENT", name, lbClient);
+    }
+  }
+
+  /** {@code jettys} not yet named, named {@code <prefix>/node<i>} in the order of their homes. */
+  private static void registerNodes(String prefix, List<JettySolrRunner> jettys) {
+    List<JettySolrRunner> started = new ArrayList<>(jettys);
     started.sort(Comparator.comparing(JettySolrRunner::getSolrHome));
     for (JettySolrRunner jetty : started) {
       if (NODES.containsKey(jetty) || jetty.getCoreContainer() == null) {
@@ -154,70 +281,6 @@ public final class CausynthSolrCluster {
         MessageDoors.spelledAs(name, zk.getNodeName(),
             Long.toString(zk.getZkClient().getSolrZooKeeper().getSessionId()));
       }
-    }
-  }
-
-  /** The test method's own request, on the thread the runner gives it. */
-  public static synchronized void beginTest() {
-    if (windowCluster != null && testRequest == 0L) {
-      testRequest = MessageDoors.beginRequest(windowCluster.getSolrClient(), "test");
-    }
-  }
-
-  /** The test is over: its request ends, and so does the window. */
-  public static synchronized void endTest() {
-    if (testRequest != 0L) {
-      MessageDoors.endRequest(testRequest, "test");
-      testRequest = 0L;
-      MessageDoors.stopRecording();
-    }
-  }
-
-  /**
-   * The servers an AbstractFullDistribZkTestBase test built for itself (no
-   * MiniSolrCloudCluster), once they are up: its nodes registered, named in
-   * the order of their homes ({@code servers0/node<i>}), and its cloud client,
-   * and the window opened with a request of the thread that built them, the
-   * test's.  The test's own timeouts stay: such a test partitions nodes and
-   * waits on its bounds.
-   */
-  public static synchronized void registerServers(List<JettySolrRunner> jettys, CloudSolrClient client) {
-    List<JettySolrRunner> started = new ArrayList<>(jettys);
-    started.sort(Comparator.comparing(JettySolrRunner::getSolrHome));
-    for (JettySolrRunner jetty : started) {
-      if (NODES.containsKey(jetty) || jetty.getCoreContainer() == null) {
-        continue;
-      }
-      String name = "servers0/node" + NODES.size();
-      NODES.put(jetty, name);
-      CoreContainer cores = jetty.getCoreContainer();
-      ZkController zk = cores.getZkController();
-      MessageDoors.registerNode(jetty, NODE, "SOLR_NODE", name,
-          cores, jetty.getSolrDispatchFilter(), cores.getUpdateShardHandler(),
-          cores.getShardHandlerFactory(), zk, zk.getZkClient(), zk.getZkStateReader(), zk.getOverseer());
-      MessageDoors.spelledAs(name, zk.getNodeName(),
-          Long.toString(zk.getZkClient().getSolrZooKeeper().getSessionId()));
-    }
-    MessageDoors.registerNode(client, "EXTERNAL_APP", "SOLR_CLIENT", "servers0/client0",
-        client.getLbClient(), client.getZkStateReader(), client.getZkStateReader().getZkClient());
-    MessageDoors.startRecording();
-    serversRequest = MessageDoors.beginRequest(client, "test");
-  }
-
-  /** The servers' test is over: its request ends, and so does the window. */
-  public static synchronized void shutdownServers() {
-    if (serversRequest != 0L) {
-      MessageDoors.endRequest(serversRequest, "test");
-      serversRequest = 0L;
-      MessageDoors.stopRecording();
-    }
-  }
-
-  /** The window's suite request ends when its cluster shuts down. */
-  public static synchronized void shutdownAutomatically(MiniSolrCloudCluster cluster) {
-    if (cluster == windowCluster) {
-      MessageDoors.endRequest(suiteRequest, "suite");
-      windowCluster = null;
     }
   }
 }

@@ -2503,6 +2503,7 @@ public abstract class SolrTestCaseJ4 extends SolrTestCase {
 
     public CloudHttp2SolrClientBuilder(MiniSolrCloudCluster cluster) {
       super(new ArrayList<>());
+      this.causynthCluster = cluster;
       if (random().nextBoolean()) {
         this.zkHosts.add(cluster.getZkServer().getZkAddress());
       } else {
@@ -2527,6 +2528,19 @@ public abstract class SolrTestCaseJ4 extends SolrTestCase {
       this.directUpdatesToLeadersOnly = random().nextBoolean();
       this.shardLeadersOnly = random().nextBoolean();
       this.parallelUpdates = random().nextBoolean();
+    }
+
+    /** GraphChecker: the cluster this client is built against, when the test named it. */
+    private MiniSolrCloudCluster causynthCluster;
+
+    /** GraphChecker: a client built against an automatic cluster is one of its client nodes. */
+    @Override
+    public CloudHttp2SolrClient build() {
+      CloudHttp2SolrClient client = super.build();
+      if (org.apache.solr.common.util.CausynthBounds.automatic()) {
+        org.apache.solr.cloud.CausynthSolrCluster.registerClient(causynthCluster, client, client.getLbClient());
+      }
+      return client;
     }
   }
 
@@ -2556,6 +2570,7 @@ public abstract class SolrTestCaseJ4 extends SolrTestCase {
     }
 
     public CloudSolrClientBuilder(MiniSolrCloudCluster cluster) {
+      this.causynthCluster = cluster;
       if (random().nextBoolean()) {
         this.zkHosts.add(cluster.getZkServer().getZkAddress());
       } else {
@@ -2580,6 +2595,19 @@ public abstract class SolrTestCaseJ4 extends SolrTestCase {
       this.directUpdatesToLeadersOnly = random().nextBoolean();
       this.shardLeadersOnly = random().nextBoolean();
       this.parallelUpdates = random().nextBoolean();
+    }
+
+    /** GraphChecker: the cluster this client is built against, when the test named it. */
+    private MiniSolrCloudCluster causynthCluster;
+
+    /** GraphChecker: a client built against an automatic cluster is one of its client nodes. */
+    @Override
+    public CloudSolrClient build() {
+      CloudSolrClient client = super.build();
+      if (org.apache.solr.common.util.CausynthBounds.automatic()) {
+        org.apache.solr.cloud.CausynthSolrCluster.registerClient(causynthCluster, client, client.getLbClient());
+      }
+      return client;
     }
   }
 
