@@ -47,6 +47,7 @@ import org.apache.solr.common.cloud.ClusterState;
 import org.apache.solr.common.cloud.DocCollection;
 import org.apache.solr.common.cloud.Replica;
 import org.apache.solr.common.cloud.Slice;
+import org.apache.solr.common.cloud.ZkConfigManager;
 import org.apache.solr.common.cloud.ZkStateReader;
 import org.apache.solr.common.params.ModifiableSolrParams;
 import org.apache.solr.common.params.SolrParams;
@@ -106,15 +107,15 @@ public abstract class RoutedAliasUpdateProcessorTest extends SolrCloudTestCase {
     return getSaferTestName();
   }
 
-  void createConfigSet(String configName) throws SolrServerException, IOException, InterruptedException {
+  void createConfigSet(String configName) throws Exception {
     // First create a configSet
     // Then we create a collection with the name of the eventual config.
     // We configure it, and ultimately delete the collection, leaving a modified config-set behind.
     // Later we create the "real" collections referencing this modified config-set.
-    assertEquals(0, new ConfigSetAdminRequest.Create()
-        .setConfigSetName(configName)
-        .setBaseConfigSetName("_default")
-        .process(getSolrClient()).getStatus());
+    // GraphChecker: the configSet is the cluster's _default copied in ZooKeeper, a trusted one: CREATE from
+    // the trusted _default refuses an unauthenticated request in 8.11 ("Can't create a configset with an
+    // unauthenticated request from a trusted baseConfigSet").
+    new ZkConfigManager(cluster.getZkClient()).copyConfigDir("_default", configName);
 
     CollectionAdminRequest.createCollection(configName, configName, 1, 1).process(getSolrClient());
 
