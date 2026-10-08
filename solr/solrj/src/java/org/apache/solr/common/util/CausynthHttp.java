@@ -21,6 +21,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Function;
 
 import edu.uva.liftlab.graphchecker.runtime.MessageDoors;
+import org.apache.solr.client.solrj.SolrRequest;
 
 /**
  * Solr's HTTP transport on GraphChecker's message doors: one exchange per
@@ -33,6 +34,14 @@ import edu.uva.liftlab.graphchecker.runtime.MessageDoors;
  * #respond} where the node writes its response, {@link #response} where the
  * client reads it.  A request is sent once: a retry, or another node tried
  * after this one, is a request of its own.</p>
+ *
+ * <p>A request starts at the client's invoke point ({@link
+ * #requestStarting}, closed by {@link #requestEnded} in a finally): a
+ * response the thread received is over there, a request it serves stands
+ * (a handler's nested call is its call's), and the request is in hand,
+ * named by its operation ({@link #verb}), until it ends -- its send and
+ * the starts it makes are that operation's, so another operation's extra
+ * request (the Overseer's REQUESTSTATUS polls) renumbers no later one.</p>
  */
 public final class CausynthHttp {
   public static final String TRANSPORT = "SOLR_HTTP";
@@ -45,18 +54,48 @@ public final class CausynthHttp {
   }
 
   /**
-   * A request leaves the calling thread, which no longer serves what it
-   * received.
+   * The operation {@code request} asks for: its path (a query's handler,
+   * its {@code qt}) and, for an admin request, its action, e.g. {@code
+   * /admin/collections:REQUESTSTATUS}.  A constant of the request, alike in
+   * every run; the collection or core is no part of it.
+   */
+  public static String verb(SolrRequest<?> request) {
+    String path = request.getPath();
+    String action = request.getParams() == null ? null
+        : request.getParams().get("action");
+    return (path == null ? "" : path) + (action == null ? "" : ":" + action);
+  }
+
+  /**
+   * A request of the calling thread's client starts, at its invoke point,
+   * before the client's call ({@code MessageDoors#requestStarting}); its
+   * first attempt always, since a retry is a request of its own.
+   *
+   * @return what {@link #requestEnded} takes, in a finally
+   */
+  public static long requestStarting(SolrRequest<?> request) {
+    return MessageDoors.requestStarting(TRANSPORT, verb(request), 1);
+  }
+
+  /** The request {@link #requestStarting} began is over, answered or
+   *  failed. */
+  public static void requestEnded(long request) {
+    MessageDoors.requestEnded(request);
+  }
+
+  /**
+   * A request of operation {@code verb} ({@link #verb}) leaves the calling
+   * thread.
    *
    * @param owner  the client, whose registered node is the sender's when the
    *               thread names none
    * @param header sets one request header
    */
-  public static void request(Object owner, BiConsumer<String, String> header) {
-    MessageDoors.endInbound();
+  public static void request(Object owner, String verb,
+      BiConsumer<String, String> header) {
     String correlation = "solr-http-" + UUID.randomUUID();
-    MessageDoors.Outbound outbound = MessageDoors.outbound(TRANSPORT,
-        correlation, ATTEMPT, MessageDoors.REQUEST, owner, null);
+    MessageDoors.Outbound outbound = MessageDoors.outboundRequest(TRANSPORT,
+        correlation, ATTEMPT, owner, null, verb, null);
     header.accept(CORRELATION, correlation);
     write(outbound, header);
   }

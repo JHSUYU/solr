@@ -216,6 +216,7 @@ public class ConcurrentUpdateHttp2SolrClient extends SolrClient {
       try {
         while (!queue.isEmpty()) {
           InputStream rspBody = null;
+          long causynthRequest = 0L;
           try {
             Update update;
             notifyQueueAndRunnersIfEmptyQueue();
@@ -224,6 +225,8 @@ public class ConcurrentUpdateHttp2SolrClient extends SolrClient {
             if (update == null) {
               break;
             }
+            // GraphChecker: one stream is one request, started here.
+            causynthRequest = CausynthHttp.requestStarting(update.getRequest());
 
             InputStreamResponseListener responseListener = null;
             try (Http2SolrClient.OutStream out = client.initOutStream(basePath, update.getRequest(),
@@ -291,6 +294,7 @@ public class ConcurrentUpdateHttp2SolrClient extends SolrClient {
             } catch (Exception e) {
               log.error("Error consuming and closing http response stream.", e);
             }
+            CausynthHttp.requestEnded(causynthRequest);
             notifyQueueAndRunnersIfEmptyQueue();
           }
         }
