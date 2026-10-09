@@ -58,7 +58,8 @@ public abstract class SolrClientBuilder<B extends SolrClientBuilder<B>> {
       throw new IllegalArgumentException("connectionTimeoutMillis must be a non-negative integer.");
     }
     
-    this.connectionTimeoutMillis = connectionTimeoutMillis;
+    // GraphChecker: a bound sized for a native run never expires in an automatic cluster.
+    this.connectionTimeoutMillis = CausynthBounds.millis(connectionTimeoutMillis);
     return getThis();
   }
   
@@ -73,7 +74,8 @@ public abstract class SolrClientBuilder<B extends SolrClientBuilder<B>> {
       throw new IllegalArgumentException("socketTimeoutMillis must be a non-negative integer.");
     }
     
-    this.socketTimeoutMillis = socketTimeoutMillis;
+    // GraphChecker: a bound sized for a native run never expires in an automatic cluster.
+    this.socketTimeoutMillis = CausynthBounds.millis(socketTimeoutMillis);
     return getThis();
   }
 }
