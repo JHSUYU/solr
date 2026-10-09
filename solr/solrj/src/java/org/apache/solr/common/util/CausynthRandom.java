@@ -65,10 +65,26 @@ public final class CausynthRandom {
         .thenComparing(each -> String.valueOf(node.apply(each))));
   }
 
-  /** {@link #order}, then shuffled by {@code random}. */
+  /**
+   * {@code list} shuffled by {@code random} -- in an automatic cluster
+   * {@link #order}ed first and drawn by a Random of its own, seeded by the
+   * test's seed and the list's nodes: the draws of one Random a client or
+   * a node shares across threads come in the order the threads ask, no
+   * other run's (solr-adhoc-10, round MB21s: the test's two update threads
+   * and the nodes' shard requests drew from one generator, and the cloud
+   * client's updates went to node2 in the replay, node3 in the recording).
+   */
   public static <T> void shuffle(List<T> list, Random random, Function<? super T, String> node) {
+    if (!CausynthBounds.automatic()) {
+      Collections.shuffle(list, random);
+      return;
+    }
     order(list, node);
-    Collections.shuffle(list, random);
+    long seed = String.valueOf(System.getProperty("tests.seed")).hashCode();
+    for (T each : list) {
+      seed = 31L * seed + ordinalOf(node.apply(each));
+    }
+    Collections.shuffle(list, new Random(seed));
   }
 
   private static int ordinalOf(String nodeOrUrl) {
