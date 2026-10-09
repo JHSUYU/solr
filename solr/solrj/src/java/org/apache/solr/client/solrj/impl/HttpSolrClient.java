@@ -258,7 +258,7 @@ public class HttpSolrClient extends BaseHttpSolrClient {
     // GraphChecker: the request starts here, the client's invoke point.
     long causynthRequest = CausynthHttp.requestStarting(request);
     try {
-      HttpRequestBase method = createMethod(request, collection);
+      HttpRequestBase method = CausynthHttp.named(createMethod(request, collection), request);
       setBasicAuthHeader(request, method);
       if (request.getHeaders() != null) {
         @SuppressWarnings({"unchecked"})
@@ -267,7 +267,6 @@ public class HttpSolrClient extends BaseHttpSolrClient {
           method.setHeader(entry.getKey(), entry.getValue());
         }
       }
-      CausynthHttp.request(this, CausynthHttp.verb(request), method::setHeader);
       return executeMethod(method, request.getUserPrincipal(), processor, isV2ApiRequest(request));
     } finally {
       CausynthHttp.requestEnded(causynthRequest);
@@ -311,8 +310,7 @@ public class HttpSolrClient extends BaseHttpSolrClient {
    */
   public HttpUriRequestResponse httpUriRequest(@SuppressWarnings({"rawtypes"})final SolrRequest request, final ResponseParser processor) throws SolrServerException, IOException {
     HttpUriRequestResponse mrr = new HttpUriRequestResponse();
-    final HttpRequestBase method = createMethod(request, null);
-    CausynthHttp.request(this, CausynthHttp.verb(request), method::setHeader);
+    final HttpRequestBase method = CausynthHttp.named(createMethod(request, null), request);
     ExecutorService pool = ExecutorUtil.newMDCAwareFixedThreadPool(1, new SolrNamedThreadFactory("httpUriRequest"));
     try {
       MDC.put("HttpSolrClient.url", baseUrl);
@@ -577,6 +575,9 @@ public class HttpSolrClient extends BaseHttpSolrClient {
         // to transfer authentication information to Auth plugins that wish to intercept the request later
         httpClientRequestContext.setUserToken(userPrincipal);
       }
+      // GraphChecker: the request leaves here, in the method that holds its doors (the catalog's,
+      // at httpClient#execute): its sender occurrence is the one that reads their fault markers.
+      CausynthHttp.request(this, CausynthHttp.verbOf(method), method::setHeader);
       final HttpResponse response = httpClient.execute(method, httpClientRequestContext);
       CausynthHttp.response(name -> {
         org.apache.http.Header header = response.getFirstHeader(name);
