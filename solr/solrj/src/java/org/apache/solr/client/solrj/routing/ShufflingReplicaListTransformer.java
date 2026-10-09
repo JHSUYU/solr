@@ -16,7 +16,6 @@
  */
 package org.apache.solr.client.solrj.routing;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
@@ -32,7 +31,10 @@ public class ShufflingReplicaListTransformer implements ReplicaListTransformer {
   public void transform(List<?> choices)
   {
     if (choices.size() > 1) {
-      Collections.shuffle(choices, r);
+      // GraphChecker: drawn from node order in an automatic cluster (CausynthRandom).
+      org.apache.solr.common.util.CausynthRandom.shuffle(choices, r,
+          choice -> choice instanceof org.apache.solr.common.cloud.Replica
+              ? ((org.apache.solr.common.cloud.Replica) choice).getNodeName() : String.valueOf(choice));
     }
   }
 

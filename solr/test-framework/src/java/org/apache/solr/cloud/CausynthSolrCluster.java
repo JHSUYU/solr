@@ -16,8 +16,6 @@
  */
 package org.apache.solr.cloud;
 
-import java.io.IOException;
-import java.net.ServerSocket;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -31,6 +29,7 @@ import org.apache.solr.client.solrj.impl.BaseCloudSolrClient;
 import org.apache.solr.client.solrj.impl.CloudSolrClient;
 import org.apache.solr.client.solrj.impl.ZkClientClusterStateProvider;
 import org.apache.solr.common.util.CausynthBounds;
+import org.apache.solr.common.util.CausynthRandom;
 import org.apache.solr.core.CoreContainer;
 
 /**
@@ -83,7 +82,6 @@ public final class CausynthSolrCluster {
   private static boolean testRunning;
   private static long suiteRequest;
   private static long testRequest;
-  private static int lastPort;
 
   static {
     JettySolrRunner.causynthStarts = new Starts();
@@ -102,30 +100,6 @@ public final class CausynthSolrCluster {
     }
     // How long a collections API call waits for the Overseer to answer.
     org.apache.solr.handler.admin.CollectionsHandler.DEFAULT_COLLECTION_OP_TIMEOUT = CausynthBounds.NEVER_MS;
-  }
-
-  /**
-   * The next node's port: free, and above every port handed out before, so
-   * the nodes' names sort in the order they started.
-   */
-  public static synchronized int nextPort() throws IOException {
-    if (lastPort == 0) {
-      // A random start: replays of one case share a host.
-      try (ServerSocket socket = new ServerSocket(0)) {
-        lastPort = socket.getLocalPort();
-        return lastPort;
-      }
-    }
-    for (int port = lastPort + 1; port < 65536; port++) {
-      try (ServerSocket socket = new ServerSocket(port)) {
-        socket.setReuseAddress(true);
-        lastPort = port;
-        return port;
-      } catch (IOException taken) {
-        // the next one
-      }
-    }
-    throw new IOException("no free port above " + lastPort);
   }
 
   /**
@@ -298,6 +272,9 @@ public final class CausynthSolrCluster {
     if (zk != null) {
       MessageDoors.spelledAs(name, zk.getNodeName(),
           Long.toString(zk.getZkClient().getSolrZooKeeper().getSessionId()));
+      // Its place among the nodes, whatever port this run gave it (CausynthRandom#order).
+      CausynthRandom.ordinal(zk.getNodeName(),
+          Integer.parseInt(name.substring(name.lastIndexOf("/node") + "/node".length())));
     }
   }
 

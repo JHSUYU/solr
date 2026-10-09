@@ -485,11 +485,7 @@ public class MiniSolrCloudCluster {
 
     Path runnerPath = createInstancePath(name);
     String context = getHostContextSuitableForServletContext(hostContext);
-    JettyConfig.Builder builder = JettyConfig.builder(config).setContext(context);
-    if (CausynthBounds.automatic() && config.port == 0) {
-      builder.setPort(CausynthSolrCluster.nextPort());
-    }
-    JettyConfig newConfig = builder.build();
+    JettyConfig newConfig = JettyConfig.builder(config).setContext(context).build();
     JettySolrRunner jetty = !trackJettyMetrics 
       ? new JettySolrRunner(runnerPath.toString(), nodeProps, newConfig)
       : new JettySolrRunnerWithMetrics(runnerPath.toString(), nodeProps, newConfig);
