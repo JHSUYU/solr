@@ -78,6 +78,7 @@ import org.apache.solr.common.params.ShardParams;
 import org.apache.solr.common.params.SolrParams;
 import org.apache.solr.common.params.UpdateParams;
 import org.apache.solr.common.util.CausynthHttp;
+import org.apache.solr.common.util.CausynthRandom;
 import org.apache.solr.common.util.ExecutorUtil;
 import org.apache.solr.common.util.Hash;
 import org.apache.solr.common.util.NamedList;
@@ -99,7 +100,7 @@ public abstract class BaseCloudSolrClient extends SolrClient {
   private volatile String defaultCollection;
   //no of times collection state to be reloaded if stale state error is received
   private static final int MAX_STALE_RETRIES = Integer.parseInt(System.getProperty("cloudSolrClientMaxStaleRetries", "5"));
-  private Random rand = new Random();
+  private Random rand = CausynthRandom.create();
 
   private final boolean updatesToLeaders;
   private final boolean directUpdatesToLeadersOnly;

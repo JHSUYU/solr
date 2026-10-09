@@ -43,7 +43,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
-import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -1271,7 +1270,7 @@ public class ReplicationHandler extends RequestHandlerBase implements SolrCoreAw
     executorService = Executors.newSingleThreadScheduledExecutor(
         new SolrNamedThreadFactory("indexFetcher"));
     // Randomize initial delay, with a minimum of 1ms
-    long initialDelayNs = new Random().nextLong() % pollIntervalNs
+    long initialDelayNs = org.apache.solr.common.util.CausynthRandom.create().nextLong() % pollIntervalNs
         + TimeUnit.NANOSECONDS.convert(1, TimeUnit.MILLISECONDS);
     executorService.scheduleAtFixedRate(task, initialDelayNs, pollIntervalNs, TimeUnit.NANOSECONDS);
     log.info("Poll scheduled at an interval of {}ms",
