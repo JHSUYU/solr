@@ -364,7 +364,7 @@ public class SolrZkClient implements Closeable {
     } else {
       data = keeper.getData(path, wrapWatcher(watcher), read);
     }
-    causynthRead(path, read);
+    causynthRead(path, read, data);
     return data;
   }
 
@@ -378,8 +378,10 @@ public class SolrZkClient implements Closeable {
   /** GraphChecker's store transport: a znode version, written by one node, read by any. */
   public static final String CAUSYNTH_ZK = "SOLR_ZK";
 
-  private void causynthWrote(String path, int version) {
-    MessageDoors.stored(CAUSYNTH_ZK, path + "@" + version, this);
+  /** A write of {@code data} made this version: what the store carries
+   *  (MessageDoors#stored; a JSON document's leaves, MessageDoors#jsonWritten). */
+  private void causynthWrote(String path, int version, byte[] data) {
+    MessageDoors.stored(CAUSYNTH_ZK, path + "@" + version, this, data);
   }
 
   /** Opens a write's bracket at the path it writes (a sequential create's:
@@ -406,12 +408,22 @@ public class SolrZkClient implements Closeable {
     return MessageDoors.storing(CAUSYNTH_ZK, op.getPath());
   }
 
+  /** What a multi's create or set writes, or null. */
+  private static byte[] causynthData(Op op) {
+    if (op == null) return null;
+    org.apache.jute.Record request = op.toRequestRecord();
+    return request instanceof org.apache.zookeeper.proto.CreateRequest
+        ? ((org.apache.zookeeper.proto.CreateRequest) request).getData()
+        : request instanceof org.apache.zookeeper.proto.SetDataRequest
+        ? ((org.apache.zookeeper.proto.SetDataRequest) request).getData() : null;
+  }
+
   private static void causynthStored(long store) {
     MessageDoors.storeEnded(CAUSYNTH_ZK, store);
   }
 
-  private void causynthRead(String path, Stat stat) {
-    MessageDoors.fetched(CAUSYNTH_ZK, path + "@" + stat.getVersion(), this);
+  private void causynthRead(String path, Stat stat, byte[] data) {
+    MessageDoors.fetched(CAUSYNTH_ZK, path + "@" + stat.getVersion(), this, data);
   }
 
   /**
@@ -427,7 +439,7 @@ public class SolrZkClient implements Closeable {
       } else {
         written = keeper.setData(path, data, version);
       }
-      causynthWrote(path, written.getVersion());
+      causynthWrote(path, written.getVersion(), data);
     } finally {
       causynthStored(store);
     }
@@ -486,7 +498,7 @@ public class SolrZkClient implements Closeable {
         List<ACL> acls = zkACLProvider.getACLsToAdd(path);
         created = keeper.create(path, data, acls, createMode);
       }
-      causynthWrote(created, 0);
+      causynthWrote(created, 0, data);
     } finally {
       causynthStored(store);
     }
@@ -618,7 +630,7 @@ public class SolrZkClient implements Closeable {
             long store = causynthStoring(currentPath, finalMode);
             try {
               String made = keeper.create(currentPath, finalBytes, zkACLProvider.getACLsToAdd(currentPath), finalMode);
-              causynthWrote(made, 0);
+              causynthWrote(made, 0, finalBytes);
             } finally {
               causynthStored(store);
             }
@@ -628,7 +640,7 @@ public class SolrZkClient implements Closeable {
           long store = causynthStoring(currentPath, mode);
           try {
             String made = keeper.create(currentPath, bytes, zkACLProvider.getACLsToAdd(currentPath), mode);
-            causynthWrote(made, 0);
+            causynthWrote(made, 0, bytes);
           } finally {
             causynthStored(store);
           }
@@ -700,11 +712,12 @@ public class SolrZkClient implements Closeable {
       }
       java.util.Iterator<Op> op = ops.iterator();
       for (OpResult result : results) {
-        String path = op.hasNext() ? op.next().getPath() : null;
+        Op each = op.hasNext() ? op.next() : null;
+        String path = each == null ? null : each.getPath();
         if (result instanceof OpResult.CreateResult) {
-          causynthWrote(((OpResult.CreateResult) result).getPath(), 0);
+          causynthWrote(((OpResult.CreateResult) result).getPath(), 0, causynthData(each));
         } else if (result instanceof OpResult.SetDataResult && path != null) {
-          causynthWrote(path, ((OpResult.SetDataResult) result).getStat().getVersion());
+          causynthWrote(path, ((OpResult.SetDataResult) result).getStat().getVersion(), causynthData(each));
         }
       }
     } finally {
