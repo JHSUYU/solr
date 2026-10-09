@@ -495,9 +495,6 @@ public class MiniSolrCloudCluster {
       : new JettySolrRunnerWithMetrics(runnerPath.toString(), nodeProps, newConfig);
     jetty.start();
     jettys.add(jetty);
-    if (CausynthBounds.automatic()) {
-      CausynthSolrCluster.registerStartedNodes(this);
-    }
     return jetty;
   }
   

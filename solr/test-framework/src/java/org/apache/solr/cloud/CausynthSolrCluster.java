@@ -47,7 +47,13 @@ import org.apache.solr.core.CoreContainer;
  * the randomized runner gives a test a thread of its own -- opened when the
  * window opens if the test built its cluster in its own {@code @Before}.  The
  * window closes with the test ({@link #endTest}) or with its cluster's
- * shutdown, whichever comes first: the teardown is not recorded.</p>
+ * shutdown, whichever comes first: the teardown is not recorded.  A jetty
+ * that starts in the window is a node from its first moment ({@link
+ * Starts}): a registered one restarted at its next epoch, a new one of a
+ * registered cluster the next node of that cluster.  A client the test builds
+ * outside SolrTestCaseJ4's cloud builders -- an HttpSolrClient to a node --
+ * is no node: what it sends on the test's thread is the thread's, its node
+ * and its request.</p>
  *
  * <p>The same world at the window: every node the cluster starts comes up in
  * turn, so the first one is the Overseer, on a port above the one before it,
@@ -64,7 +70,11 @@ public final class CausynthSolrCluster {
       "connTimeout", "distribUpdateConnTimeout", "distribUpdateSoTimeout"};
 
   private static final Map<MiniSolrCloudCluster, String> CLUSTERS = new IdentityHashMap<>();
+  /** The registered clusters' and servers' prefixes by the ZooKeeper address their nodes and clients name. */
+  private static final Map<String, String> PREFIXES = new HashMap<>();
   private static final Map<JettySolrRunner, String> NODES = new IdentityHashMap<>();
+  /** A registered node's restarts so far: its epoch. */
+  private static final Map<JettySolrRunner, Long> EPOCHS = new IdentityHashMap<>();
   /** Per cluster prefix, the clients a test built against it. */
   private static final Map<String, Integer> CLIENTS = new HashMap<>();
   /** What opened the window: a cluster, or an AbstractFullDistribZkTestBase's servers. */
@@ -74,6 +84,10 @@ public final class CausynthSolrCluster {
   private static long suiteRequest;
   private static long testRequest;
   private static int lastPort;
+
+  static {
+    JettySolrRunner.causynthStarts = new Starts();
+  }
 
   private CausynthSolrCluster() {
   }
@@ -126,16 +140,11 @@ public final class CausynthSolrCluster {
     }
     registerNodes(prefix, cluster.getJettySolrRunners());
     CloudSolrClient client = cluster.getSolrClient();
+    if (client != null) {
+      PREFIXES.put(client.getZkHost(), prefix);
+    }
     if (windowOwner == null && client != null) {
       openWindow(cluster, prefix, client);
-    }
-  }
-
-  /** The nodes a registered cluster started since. */
-  public static synchronized void registerStartedNodes(MiniSolrCloudCluster cluster) {
-    String prefix = CLUSTERS.get(cluster);
-    if (prefix != null) {
-      registerNodes(prefix, cluster.getJettySolrRunners());
     }
   }
 
@@ -148,6 +157,7 @@ public final class CausynthSolrCluster {
    */
   public static synchronized void registerServers(List<JettySolrRunner> jettys, CloudSolrClient client) {
     registerNodes("servers0", jettys);
+    PREFIXES.put(client.getZkHost(), "servers0");
     if (windowOwner == null) {
       openWindow(jettys, "servers0", client);
       beginTest();
@@ -155,24 +165,17 @@ public final class CausynthSolrCluster {
   }
 
   /**
-   * A cloud client a test built against an automatic cluster -- through
-   * SolrTestCaseJ4's builder, which may point it at the cluster's ZooKeeper
-   * or at its nodes -- is a client node of that cluster ({@code
+   * A cloud client a test built against a registered cluster or servers --
+   * through SolrTestCaseJ4's builder, which may point it at the cluster's
+   * ZooKeeper or at its nodes -- is a client node of that cluster ({@code
    * <cluster>/client<k>}, k in the order they were built): its requests and
    * its state reader's watchers are its own, not the test thread's.
    */
   public static synchronized void registerClient(MiniSolrCloudCluster built,
       BaseCloudSolrClient client, Object lbClient) {
-    MiniSolrCloudCluster cluster = built;
-    if (cluster == null) {
-      for (MiniSolrCloudCluster known : CLUSTERS.keySet()) {
-        if (client.getClusterStateProvider() instanceof ZkClientClusterStateProvider
-            && client.getZkHost().equals(known.getZkServer().getZkAddress())) {
-          cluster = known;
-        }
-      }
-    }
-    String prefix = cluster == null ? null : CLUSTERS.get(cluster);
+    String prefix = built != null ? CLUSTERS.get(built)
+        : client.getClusterStateProvider() instanceof ZkClientClusterStateProvider
+            ? PREFIXES.get(client.getZkHost()) : null;
     if (prefix == null) {
       return;
     }
@@ -257,37 +260,84 @@ public final class CausynthSolrCluster {
     }
   }
 
-  /**
-   * {@code jettys} not yet named, named {@code <prefix>/node<i>} in the order of their homes;
-   * every one up states its run-only names again, so a restarted node's port and session are
-   * its own too.
-   */
+  /** {@code jettys} up and not yet named, named {@code <prefix>/node<i>} in the order of their homes. */
   private static void registerNodes(String prefix, List<JettySolrRunner> jettys) {
     List<JettySolrRunner> started = new ArrayList<>(jettys);
     started.sort(Comparator.comparing(JettySolrRunner::getSolrHome));
     for (JettySolrRunner jetty : started) {
-      CoreContainer cores = jetty.getCoreContainer();
-      if (cores == null) {
+      if (NODES.containsKey(jetty) || jetty.getCoreContainer() == null) {
         continue;
       }
-      ZkController zk = cores.getZkController();
-      String name = NODES.get(jetty);
-      if (name == null) {
-        name = prefix + "/node" + NODES.size();
-        NODES.put(jetty, name);
-        MessageDoors.registerNode(jetty, NODE, "SOLR_NODE", name,
-            cores, jetty.getSolrDispatchFilter(), cores.getUpdateShardHandler(),
-            cores.getShardHandlerFactory(), zk,
-            zk == null ? null : zk.getZkClient(),
-            zk == null ? null : zk.getZkStateReader(),
-            zk == null ? null : zk.getOverseer());
+      String name = prefix + "/node" + NODES.size();
+      NODES.put(jetty, name);
+      MessageDoors.registerSource(jetty, NODE, "SOLR_NODE", name, 0L);
+      registerUp(jetty, name);
+    }
+  }
+
+  /**
+   * A registered node is up: the objects it runs its work through -- its container, its filter,
+   * its handlers, its ZooKeeper client and state reader, its Overseer -- are the node, and so are
+   * its names in this run only, its node name (host and port) and its ZooKeeper session, which
+   * leader elections spell in the nodes they create.
+   */
+  private static void registerUp(JettySolrRunner jetty, String name) {
+    CoreContainer cores = jetty.getCoreContainer();
+    if (cores == null) {
+      return;
+    }
+    ZkController zk = cores.getZkController();
+    Object[] aliases = {cores, jetty.getSolrDispatchFilter(), cores.getUpdateShardHandler(),
+        cores.getShardHandlerFactory(), zk, zk == null ? null : zk.getZkClient(),
+        zk == null ? null : zk.getZkStateReader(), zk == null ? null : zk.getOverseer()};
+    for (Object alias : aliases) {
+      if (alias != null) {
+        MessageDoors.registerSourceAlias(alias, jetty);
       }
-      if (zk != null) {
-        // The node's names in this run only: its node name (host and port) and its ZooKeeper
-        // session, which leader elections spell in the nodes they create.
-        MessageDoors.spelledAs(name, zk.getNodeName(),
-            Long.toString(zk.getZkClient().getSolrZooKeeper().getSessionId()));
+    }
+    if (zk != null) {
+      MessageDoors.spelledAs(name, zk.getNodeName(),
+          Long.toString(zk.getZkClient().getSolrZooKeeper().getSessionId()));
+    }
+  }
+
+  /**
+   * A jetty's start in the window is a node's from its first moment, what it starts before it
+   * is up included: a registered node's restart at its next epoch, or a new node of the
+   * registered cluster or servers whose ZooKeeper it joins, named the next node -- an
+   * AbstractFullDistribZkTestBase test's leader brought back, a cluster's added node.  Any other
+   * start (before the window, or of a cluster not yet registered) is left to the registration.
+   */
+  private static final class Starts implements JettySolrRunner.CausynthStarts {
+    @Override
+    public long starting(JettySolrRunner jetty, String zkHost) {
+      synchronized (CausynthSolrCluster.class) {
+        String name = NODES.get(jetty);
+        if (name != null) {
+          MessageDoors.restartSource(jetty, NODE, "SOLR_NODE", name,
+              EPOCHS.merge(jetty, 1L, Long::sum));
+        } else {
+          String prefix = windowOwner == null ? null : PREFIXES.get(zkHost);
+          if (prefix == null) {
+            return 0L;
+          }
+          name = prefix + "/node" + NODES.size();
+          NODES.put(jetty, name);
+          MessageDoors.registerSource(jetty, NODE, "SOLR_NODE", name, 0L);
+        }
       }
+      return MessageDoors.beginNodeStartup(jetty);
+    }
+
+    @Override
+    public void started(JettySolrRunner jetty, long startup) {
+      if (startup == 0L) {
+        return;
+      }
+      synchronized (CausynthSolrCluster.class) {
+        registerUp(jetty, NODES.get(jetty));
+      }
+      MessageDoors.endNodeStartup(startup);
     }
   }
 }
