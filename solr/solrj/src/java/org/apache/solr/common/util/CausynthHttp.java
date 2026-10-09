@@ -16,7 +16,10 @@
  */
 package org.apache.solr.common.util;
 
+import java.util.Collections;
+import java.util.Map;
 import java.util.UUID;
+import java.util.WeakHashMap;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 
@@ -68,6 +71,30 @@ public final class CausynthHttp {
         : request.getParams().get("action");
     return path.replace('/', '.') + (action == null ? "" : ":" + action);
   }
+
+  /**
+   * {@code message} -- a client's request object, made where its {@link
+   * SolrRequest} is known -- asks for {@code request}'s operation ({@link
+   * #verb}), which {@link #verbOf} reads where it is sent: the send stands
+   * in the method that holds the request's doors, which knows no
+   * SolrRequest (HttpSolrClient#executeMethod).
+   *
+   * @return {@code message}
+   */
+  public static <M> M named(M message, SolrRequest<?> request) {
+    VERBS.put(message, verb(request));
+    return message;
+  }
+
+  /** The operation {@code message} was {@link #named} for, "" for none. */
+  public static String verbOf(Object message) {
+    String verb = VERBS.remove(message);
+    return verb == null ? "" : verb;
+  }
+
+  /** What {@link #named} named, until it is sent; weak, by identity. */
+  private static final Map<Object, String> VERBS =
+      Collections.synchronizedMap(new WeakHashMap<Object, String>());
 
   /**
    * A request of the calling thread's client starts, at its invoke point,

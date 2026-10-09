@@ -488,7 +488,7 @@ public class SolrConfigHandler extends RequestHandlerBase implements SolrCoreAwa
 
           log.debug("persisted to version : {} ", latestVersion);
           waitForAllReplicasState(req.getCloudDescriptor().getCollectionName(),
-              req.getCoreContainer().getZkController(), RequestParams.NAME, latestVersion, 30);
+              req.getCoreContainer().getZkController(), RequestParams.NAME, latestVersion, REPLICAS_WAIT_SECS);
         }
 
       } else {
@@ -550,7 +550,7 @@ public class SolrConfigHandler extends RequestHandlerBase implements SolrCoreAwa
         waitForAllReplicasState(req.getCloudDescriptor().getCollectionName(),
             req.getCoreContainer().getZkController(),
             ConfigOverlay.NAME,
-            latestVersion, 30);
+            latestVersion, REPLICAS_WAIT_SECS);
       } else {
         SolrResourceLoader.persistConfLocally(loader, ConfigOverlay.RESOURCE_NAME, overlay.toByteArray());
         req.getCoreContainer().reload(req.getCore().getName(), req.getCore().uniqueId);
@@ -792,6 +792,10 @@ public class SolrConfigHandler extends RequestHandlerBase implements SolrCoreAwa
    * Block up to a specified maximum time until we see agreement on the schema
    * version in ZooKeeper across all replicas for a collection.
    */
+  /** How long a config edit waits for every replica to load it: 30 s, none in an automatic cluster (CausynthBounds). */
+  private static final int REPLICAS_WAIT_SECS =
+      (int) org.apache.solr.common.util.CausynthBounds.of(30, TimeUnit.SECONDS);
+
   private static void waitForAllReplicasState(String collection,
                                               ZkController zkController,
                                               String prop,

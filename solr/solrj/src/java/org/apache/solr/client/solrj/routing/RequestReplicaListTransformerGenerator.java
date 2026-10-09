@@ -35,7 +35,7 @@ import org.slf4j.LoggerFactory;
 public class RequestReplicaListTransformerGenerator {
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
-  private static final Random r = new Random();
+  private static final Random r = org.apache.solr.common.util.CausynthRandom.create();
 
   private static final ReplicaListTransformer shufflingReplicaListTransformer = new ShufflingReplicaListTransformer(r);
   public static final ReplicaListTransformerFactory RANDOM_RLTF =

@@ -67,7 +67,7 @@ class ExclusiveSliceProperty {
   private int origModulo = 0;
   private int tmpMaxPropPerNode = 0;
   private int tmpModulo = 0;
-  Random rand = new Random();
+  Random rand = org.apache.solr.common.util.CausynthRandom.create();
 
   private int assigned = 0;
 
