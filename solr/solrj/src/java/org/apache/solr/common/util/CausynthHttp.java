@@ -80,6 +80,17 @@ public final class CausynthHttp {
     return MessageDoors.requestStarting(TRANSPORT, verb(request), 1);
   }
 
+  /**
+   * A cloud client's attempt at one call starts on the calling thread
+   * ({@code MessageDoors#callStarting}): its requests start below it, at
+   * its nodes' clients, and a response the thread received is over, so
+   * neither its routing nor the requests it hands to its pool stand on the
+   * last response the thread read.
+   */
+  public static void callStarting() {
+    MessageDoors.callStarting();
+  }
+
   /** The request {@link #requestStarting} began is over, answered or
    *  failed. */
   public static void requestEnded(long request) {
