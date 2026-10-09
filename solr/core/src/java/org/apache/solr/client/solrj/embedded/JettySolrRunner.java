@@ -125,6 +125,23 @@ public class JettySolrRunner {
 
   private volatile boolean started = false;
 
+  /**
+   * GraphChecker: what a start of a jetty is to the cluster adapter of the
+   * test that runs it (the test framework's CausynthSolrCluster), when one
+   * is set: what the start makes before the node is up is the node's.
+   */
+  public interface CausynthStarts {
+    /** Before the start; {@code zkHost} is the ZooKeeper the node joins.
+     *  Returns what {@link #started} takes. */
+    long starting(JettySolrRunner jetty, String zkHost);
+
+    /** The start is over, the node up or not. */
+    void started(JettySolrRunner jetty, long startup);
+  }
+
+  /** GraphChecker: the cluster adapter, or null. */
+  public static volatile CausynthStarts causynthStarts;
+
   public static class DebugFilter implements Filter {
     private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
@@ -487,6 +504,9 @@ public class JettySolrRunner {
     // Do not let Jetty/Solr pollute the MDC for this thread
     Map<String, String> prevContext = MDC.getCopyOfContextMap();
     MDC.clear();
+    CausynthStarts causynth = causynthStarts;
+    long causynthStartup = causynth == null ? 0L
+        : causynth.starting(this, nodeProperties.getProperty("zkHost", System.getProperty("zkHost")));
 
     try {
       int port = reusePort && jettyPort != -1 ? jettyPort : this.config.port;
@@ -538,6 +558,9 @@ public class JettySolrRunner {
         MDC.setContextMap(prevContext);
       } else {
         MDC.clear();
+      }
+      if (causynth != null) {
+        causynth.started(this, causynthStartup);
       }
     }
   }
