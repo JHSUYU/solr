@@ -543,12 +543,15 @@ public abstract class BaseCloudSolrClient extends SolrClient {
     final NamedList<Throwable> exceptions = new NamedList<>();
     @SuppressWarnings({"rawtypes"})
     final NamedList<NamedList> shardResponses = new NamedList<>(routes.size()+1); // +1 for deleteQuery
+    // GraphChecker: the routes in node order in an automatic cluster, not a port-keyed map's (CausynthRandom#order).
+    final List<Map.Entry<String, ? extends LBSolrClient.Req>> routed = new ArrayList<>(routes.entrySet());
+    CausynthRandom.order(routed, Map.Entry::getKey);
 
     long start = System.nanoTime();
 
     if (parallelUpdates) {
       final Map<String, Future<NamedList<?>>> responseFutures = new HashMap<>(routes.size());
-      for (final Map.Entry<String, ? extends LBSolrClient.Req> entry : routes.entrySet()) {
+      for (final Map.Entry<String, ? extends LBSolrClient.Req> entry : routed) {
         final String url = entry.getKey();
         final LBSolrClient.Req lbRequest = entry.getValue();
         try {
@@ -584,7 +587,7 @@ public abstract class BaseCloudSolrClient extends SolrClient {
         }
       }
     } else {
-      for (Map.Entry<String, ? extends LBSolrClient.Req> entry : routes.entrySet()) {
+      for (Map.Entry<String, ? extends LBSolrClient.Req> entry : routed) {
         String url = entry.getKey();
         LBSolrClient.Req lbRequest = entry.getValue();
         try {
@@ -620,7 +623,7 @@ public abstract class BaseCloudSolrClient extends SolrClient {
       nonRoutableRequest.setParams(nonRoutableParams);
       nonRoutableRequest.setBasicAuthCredentials(request.getBasicAuthUser(), request.getBasicAuthPassword());
       List<String> urlList = new ArrayList<>(routes.keySet());
-      Collections.shuffle(urlList, rand);
+      CausynthRandom.shuffle(urlList, rand, url -> url);
       LBSolrClient.Req req = new LBSolrClient.Req(nonRoutableRequest, urlList);
       try {
         LBSolrClient.Rsp rsp = getLbClient().request(req);
@@ -1101,12 +1104,15 @@ public abstract class BaseCloudSolrClient extends SolrClient {
     if (request instanceof V2Request) {
       if (!liveNodes.isEmpty()) {
         List<String> liveNodesList = new ArrayList<>(liveNodes);
-        Collections.shuffle(liveNodesList, rand);
+        CausynthRandom.shuffle(liveNodesList, rand, node -> node);
         theUrlList.add(Utils.getBaseUrlForNodeName(liveNodesList.get(0), urlScheme));
       }
 
     } else if (ADMIN_PATHS.contains(request.getPath())) {
-      for (String liveNode : liveNodes) {
+      // GraphChecker: tried in node order in an automatic cluster, not a port-keyed set's.
+      List<String> liveNodesList = new ArrayList<>(liveNodes);
+      CausynthRandom.order(liveNodesList, node -> node);
+      for (String liveNode : liveNodesList) {
         theUrlList.add(Utils.getBaseUrlForNodeName(liveNode, urlScheme));
       }
 

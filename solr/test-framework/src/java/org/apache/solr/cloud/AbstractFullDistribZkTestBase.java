@@ -431,7 +431,11 @@ public abstract class AbstractFullDistribZkTestBase extends AbstractDistribZkTes
                              // expect sliceCount active shards, but no active replicas
                              SolrCloudTestCase.activeClusterShape(sliceCount, 0));
     
-    ExecutorService customThreadPool = ExecutorUtil.newMDCAwareCachedThreadPool(new SolrNamedThreadFactory("closeThreadPool"));
+    // GraphChecker: an automatic cluster's servers come up in turn, as a MiniSolrCloudCluster's do, so
+    // their ports (CausynthPorts) and names sort the way they were made in every run.
+    ExecutorService customThreadPool = CausynthBounds.automatic()
+        ? ExecutorUtil.newMDCAwareSingleThreadExecutor(new SolrNamedThreadFactory("closeThreadPool"))
+        : ExecutorUtil.newMDCAwareCachedThreadPool(new SolrNamedThreadFactory("closeThreadPool"));
 
     int numOtherReplicas = numJettys - getPullReplicaCount() * sliceCount;
 
@@ -546,7 +550,10 @@ public abstract class AbstractFullDistribZkTestBase extends AbstractDistribZkTes
     
     ExecutorUtil.shutdownAndAwaitTermination(customThreadPool);
     
-    customThreadPool = ExecutorUtil.newMDCAwareCachedThreadPool(new SolrNamedThreadFactory("createReplicaRequests"));
+    // GraphChecker: in turn too, so the replicas take their names in the same order in every run.
+    customThreadPool = CausynthBounds.automatic()
+        ? ExecutorUtil.newMDCAwareSingleThreadExecutor(new SolrNamedThreadFactory("createReplicaRequests"))
+        : ExecutorUtil.newMDCAwareCachedThreadPool(new SolrNamedThreadFactory("createReplicaRequests"));
     
     for (@SuppressWarnings({"rawtypes"})CollectionAdminRequest r : createReplicaRequests) {
       customThreadPool.submit(() -> {
@@ -564,8 +571,9 @@ public abstract class AbstractFullDistribZkTestBase extends AbstractDistribZkTes
    
     ExecutorUtil.shutdownAndAwaitTermination(customThreadPool);
     
-    customThreadPool = ExecutorUtil
-        .newMDCAwareCachedThreadPool(new SolrNamedThreadFactory("createPullReplicaRequests"));
+    customThreadPool = CausynthBounds.automatic()
+        ? ExecutorUtil.newMDCAwareSingleThreadExecutor(new SolrNamedThreadFactory("createPullReplicaRequests"))
+        : ExecutorUtil.newMDCAwareCachedThreadPool(new SolrNamedThreadFactory("createPullReplicaRequests"));
     for (@SuppressWarnings({"rawtypes"})CollectionAdminRequest r : createPullReplicaRequests) {
       customThreadPool.submit(() -> {
         CollectionAdminResponse response;

@@ -48,6 +48,8 @@ import org.apache.lucene.util.Constants;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.cloud.SocketProxy;
 import org.apache.solr.client.solrj.impl.HttpSolrClient;
+import org.apache.solr.common.util.CausynthBounds;
+import org.apache.solr.common.util.CausynthPorts;
 import org.apache.solr.common.util.ExecutorUtil;
 import org.apache.solr.common.util.SolrNamedThreadFactory;
 import org.apache.solr.common.util.TimeSource;
@@ -265,7 +267,9 @@ public class JettySolrRunner {
 
     if (enableProxy) {
       try {
-        proxy = new SocketProxy(0, config.sslConfig != null && config.sslConfig.isSSLMode());
+        // GraphChecker: an automatic cluster's proxy listens on an increasing port (CausynthPorts).
+        proxy = new SocketProxy(CausynthBounds.automatic() ? CausynthPorts.next() : 0,
+            config.sslConfig != null && config.sslConfig.isSSLMode());
       } catch (Exception e) {
         throw new RuntimeException(e);
       }
@@ -276,6 +280,10 @@ public class JettySolrRunner {
   }
 
   private void init(int port) {
+    // GraphChecker: an automatic cluster's server given no port takes an increasing one (CausynthPorts).
+    if (port == 0 && CausynthBounds.automatic()) {
+      port = CausynthPorts.next();
+    }
 
     QueuedThreadPool qtp = new QueuedThreadPool();
     qtp.setMaxThreads(THREAD_POOL_MAX_THREADS);
