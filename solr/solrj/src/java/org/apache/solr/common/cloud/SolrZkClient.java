@@ -308,6 +308,7 @@ public class SolrZkClient implements Closeable {
    */
   public Stat exists(final String path, final Watcher watcher, boolean retryOnConnLoss)
       throws KeeperException, InterruptedException {
+    causynthReading(path);
     if (retryOnConnLoss) {
       return zkCmdExecutor.retryOperation(() -> keeper.exists(path, wrapWatcher(watcher)));
     } else {
@@ -320,6 +321,7 @@ public class SolrZkClient implements Closeable {
    */
   public Boolean exists(final String path, boolean retryOnConnLoss)
       throws KeeperException, InterruptedException {
+    causynthReading(path);
     if (retryOnConnLoss) {
       return zkCmdExecutor.retryOperation(() -> keeper.exists(path, null) != null);
     } else {
@@ -332,6 +334,7 @@ public class SolrZkClient implements Closeable {
    */
   public List<String> getChildren(final String path, final Watcher watcher, boolean retryOnConnLoss)
       throws KeeperException, InterruptedException {
+    causynthReading(path);
     if (retryOnConnLoss) {
       return zkCmdExecutor.retryOperation(() -> keeper.getChildren(path, wrapWatcher(watcher)));
     } else {
@@ -344,6 +347,7 @@ public class SolrZkClient implements Closeable {
    */
   public List<String> getChildren(final String path, final Watcher watcher,Stat stat, boolean retryOnConnLoss)
       throws KeeperException, InterruptedException {
+    causynthReading(path);
     if (retryOnConnLoss) {
       return zkCmdExecutor.retryOperation(() -> keeper.getChildren(path, wrapWatcher(watcher) , stat));
     } else {
@@ -359,6 +363,7 @@ public class SolrZkClient implements Closeable {
     // GraphChecker: the version read is the message its write sent.
     final Stat read = stat != null ? stat : new Stat();
     byte[] data;
+    causynthReading(path);
     if (retryOnConnLoss) {
       data = zkCmdExecutor.retryOperation(() -> keeper.getData(path, wrapWatcher(watcher), read));
     } else {
@@ -420,6 +425,13 @@ public class SolrZkClient implements Closeable {
 
   private static void causynthStored(long store) {
     MessageDoors.storeEnded(CAUSYNTH_ZK, store);
+  }
+
+  /** A read's turn at the path it reads, before the store's call (a
+   *  getChildren's: the parent, where a sequential create or a delete takes
+   *  its turn), keyed as a write's (MessageDoors#reading). */
+  private static void causynthReading(String path) {
+    MessageDoors.reading(CAUSYNTH_ZK, path);
   }
 
   private void causynthRead(String path, Stat stat, byte[] data) {
