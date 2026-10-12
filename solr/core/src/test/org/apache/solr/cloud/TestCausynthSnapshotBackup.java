@@ -49,6 +49,13 @@ public class TestCausynthSnapshotBackup extends SolrCloudTestCase {
   private static final String SNAPSHOT = "causynthSnapshot-M";
   private static String location;
 
+  static {
+    // GraphChecker: replica states in the collection's state.json, as Solr 8.11 keeps them unless a
+    // collection asks for per-replica states (which the test framework picks at random): a replica's
+    // state change is then a version of the state every node's view re-points to, not a child node.
+    System.setProperty("use.perreplica", "false");
+  }
+
   @BeforeClass
   public static void setupCluster() throws Exception {
     // The local repository writes the backup anywhere the nodes may.
@@ -62,6 +69,7 @@ public class TestCausynthSnapshotBackup extends SolrCloudTestCase {
   @AfterClass
   public static void clearAllowPaths() {
     System.clearProperty("solr.allowPaths");
+    System.clearProperty("use.perreplica");
   }
 
   @Test
