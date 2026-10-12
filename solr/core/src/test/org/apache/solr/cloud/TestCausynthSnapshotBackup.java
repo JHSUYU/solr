@@ -18,6 +18,7 @@ package org.apache.solr.cloud;
 
 import org.apache.lucene.util.LuceneTestCase;
 import org.apache.solr.client.solrj.impl.CloudSolrClient;
+import org.apache.solr.client.solrj.embedded.JettySolrRunner;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
 import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.common.cloud.Replica;
@@ -34,13 +35,18 @@ import org.junit.Test;
  * <p>CREATESNAPSHOT sends its request only to the replicas its Overseer sees
  * ACTIVE and records the snapshot as successful as long as no request it sent
  * failed.  BACKUP with the snapshot's name backs each shard up from a live
- * replica that holds the snapshot.  Here both replicas of the shard are
- * ACTIVE when the snapshot is taken, so after the leader replica is deleted
- * the other one still holds it and the backup succeeds.  Had the Overseer's
- * view at CREATESNAPSHOT shown the other replica not ACTIVE yet, the snapshot
- * would have held the leader only, still be recorded successful, and the
- * backup would have found no live replica with it ("Unable to find any live
- * replica with a snapshot named").</p>
+ * replica that holds the snapshot.  The shard's leader is on the Overseer's
+ * node; its second replica is added on the other node, the Overseer waiting
+ * for its entry only, and the client waits until its own view shows the
+ * replica ACTIVE before the snapshot.  Here the Overseer's view has caught up
+ * by then, so after the leader replica is deleted the other one still holds
+ * the snapshot and the backup succeeds.  Had the Overseer's view at
+ * CREATESNAPSHOT still shown the added replica recovering -- nothing on its
+ * node waits for its watch to deliver that state -- the snapshot would have
+ * held the leader only, still be recorded successful, and the backup would
+ * have found no live replica with it ("Unable to find any live replica with a
+ * snapshot named").  (A collection created with both replicas cannot show it:
+ * CREATE and the leader's own registration wait on the Overseer's view.)</p>
  */
 @LuceneTestCase.Slow
 @LuceneTestCase.SuppressCodecs({"SimpleText"}) // a backup checks each file's footer checksum
@@ -75,9 +81,20 @@ public class TestCausynthSnapshotBackup extends SolrCloudTestCase {
   @Test
   public void backupFromASnapshotAfterItsLeaderIsGone() throws Exception {
     CloudSolrClient client = cluster.getSolrClient();
-    // One shard, a replica on each node.
-    CollectionAdminRequest.createCollection(COLLECTION, "conf", 1, 2)
-        .setMaxShardsPerNode(1).process(client);
+    String overseer = OverseerTaskProcessor.getLeaderNode(
+        client.getZkStateReader().getZkClient());
+    String other = null;
+    for (JettySolrRunner jetty : cluster.getJettySolrRunners()) {
+      if (!jetty.getNodeName().equals(overseer)) other = jetty.getNodeName();
+    }
+    // One shard, its leader on the Overseer's node.
+    CollectionAdminRequest.createCollection(COLLECTION, "conf", 1, 1)
+        .setCreateNodeSet(overseer).setMaxShardsPerNode(1).process(client);
+    cluster.waitForActiveCollection(COLLECTION, 1, 1);
+    // A second replica on the other node, with no final state to wait for:
+    // the client waits for it ACTIVE in its own view.
+    CollectionAdminRequest.addReplicaToShard(COLLECTION, "shard1").setNode(other)
+        .process(client);
     cluster.waitForActiveCollection(COLLECTION, 1, 2);
     client.add(COLLECTION, new SolrInputDocument("id", "1"));
     client.add(COLLECTION, new SolrInputDocument("id", "2"));
