@@ -68,6 +68,7 @@ import org.apache.solr.client.solrj.cloud.DistribStateManager;
 import org.apache.solr.client.solrj.cloud.autoscaling.VersionedData;
 import org.apache.solr.client.solrj.impl.BinaryRequestWriter;
 import org.apache.solr.common.IteratorWriter;
+import edu.uva.liftlab.graphchecker.runtime.MessageDoors;
 import org.apache.solr.common.LinkedHashMapWriter;
 import org.apache.solr.common.MapWriter;
 import org.apache.solr.common.MapWriterMap;
@@ -219,6 +220,140 @@ public class Utils {
     return writer;
   }
 
+  /**
+   * GraphChecker: the document a JSON write serializes, as this serializer walks it -- a
+   * tree of maps, lists and leaves, each leaf the very object (or value) the writer holds --
+   * built from the walk's events, writing nothing (MessageDoors#jsonWritten).
+   */
+  static final class CausynthView extends MapWriterJSONWriter {
+    private final java.util.ArrayDeque<Object> open = new java.util.ArrayDeque<>();
+    private String name;
+    private Object root;
+
+    private CausynthView() {
+      super(new CharArr(), 0);
+    }
+
+    /** The document, or null where a writer's own events left it unbuilt. */
+    static Object of(Object document) {
+      CausynthView view = new CausynthView();
+      try {
+        view.write(document);
+      } catch (RuntimeException unbuilt) {
+        return null;
+      }
+      return view.open.isEmpty() ? view.root : null;
+    }
+
+    @SuppressWarnings({"unchecked"})
+    private void value(Object value) {
+      Object top = open.peek();
+      if (top == null) {
+        root = value;
+      } else if (top instanceof Map) {
+        ((Map<String, Object>) top).put(name, value);
+        name = null;
+      } else {
+        ((List<Object>) top).add(value);
+      }
+    }
+
+    @Override
+    public void startObject() {
+      Map<String, Object> object = new LinkedHashMap<>();
+      value(object);
+      open.push(object);
+    }
+
+    @Override
+    public void endObject() {
+      open.pop();
+    }
+
+    @Override
+    public void startArray() {
+      List<Object> array = new ArrayList<>();
+      value(array);
+      open.push(array);
+    }
+
+    @Override
+    public void endArray() {
+      open.pop();
+    }
+
+    @Override
+    public void writeString(String str) {
+      if (open.peek() instanceof Map && name == null) {
+        name = str;
+      } else {
+        value(str);
+      }
+    }
+
+    @Override
+    public void writeString(CharSequence str) {
+      writeString(str.toString());
+    }
+
+    @Override
+    public void write(long number) {
+      value(number);
+    }
+
+    @Override
+    public void write(int number) {
+      value(number);
+    }
+
+    @Override
+    public void write(short number) {
+      value(number);
+    }
+
+    @Override
+    public void write(byte number) {
+      value(number);
+    }
+
+    @Override
+    public void write(double number) {
+      value(number);
+    }
+
+    @Override
+    public void write(float number) {
+      value(number);
+    }
+
+    @Override
+    public void write(boolean bool) {
+      value(bool);
+    }
+
+    @Override
+    public void writeNull() {
+      value(null);
+    }
+
+    @Override
+    public void writeNumber(CharArr digits) {
+      value(digits.toString());
+    }
+
+    @Override
+    public void indent() {
+    }
+
+    @Override
+    public void writeValueSeparator() {
+    }
+
+    @Override
+    public void writeNameSeparator() {
+    }
+  }
+
   private static class MapWriterJSONWriter extends JSONWriter {
 
     public MapWriterJSONWriter(CharArr out, int indentSize) {
@@ -288,7 +423,11 @@ public class Utils {
 //      }
 //    }
     new MapWriterJSONWriter(out, 2).write(o); // indentation by default
-    return toUTF8(out);
+    byte[] utf8 = toUTF8(out);
+    // GraphChecker: the document these bytes are, as the writer holds it,
+    // for a store write of them to export leaf by leaf (MessageDoors#jsonWritten).
+    if (MessageDoors.capturingContent()) MessageDoors.jsonWritten(utf8, CausynthView.of(o));
+    return utf8;
   }
 
   public static String toJSONString(Object o) {
@@ -316,7 +455,10 @@ public class Utils {
         JSONParser.ALLOW_MISSING_COLON_COMMA_BEFORE_OBJECT |
         JSONParser.OPTIONAL_OUTER_BRACES);
     try {
-      return STANDARDOBJBUILDER.apply(parser).getValStrict();
+      Object parsed = STANDARDOBJBUILDER.apply(parser).getValStrict();
+      // GraphChecker: a fetched version's content, leaf by leaf (MessageDoors#jsonRead).
+      if (offset == 0 && length == utf8.length) MessageDoors.jsonRead(utf8, parsed);
+      return parsed;
     } catch (IOException e) {
       throw new RuntimeException(e); // should never happen w/o using real IO
     }

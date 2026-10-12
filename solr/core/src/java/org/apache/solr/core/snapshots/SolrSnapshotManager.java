@@ -169,9 +169,14 @@ public class SolrSnapshotManager {
       throws InterruptedException, KeeperException {
     String zkPath = getSnapshotMetaDataZkPath(collectionName, Optional.of(commitName));
     try {
+      // GraphChecker: the metadata holds the version it was parsed from (MessageDoors#decoded).
+      org.apache.zookeeper.data.Stat stat = new org.apache.zookeeper.data.Stat();
       @SuppressWarnings({"unchecked"})
-      Map<String, Object> data = (Map<String, Object>)Utils.fromJSON(zkClient.getData(zkPath, null, null, true));
-      return Optional.of(new CollectionSnapshotMetaData(data));
+      Map<String, Object> data = (Map<String, Object>)Utils.fromJSON(zkClient.getData(zkPath, null, stat, true));
+      CollectionSnapshotMetaData meta = new CollectionSnapshotMetaData(data);
+      edu.uva.liftlab.graphchecker.runtime.MessageDoors.decoded(SolrZkClient.CAUSYNTH_ZK,
+          zkPath + "@" + stat.getVersion(), meta);
+      return Optional.of(meta);
     } catch (KeeperException ex) {
       // Gracefully handle the case when the zk node for a specific
       // snapshot doesn't exist (e.g. due to a concurrent delete operation).
