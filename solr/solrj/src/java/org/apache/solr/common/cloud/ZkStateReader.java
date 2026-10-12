@@ -417,31 +417,33 @@ public class ZkStateReader implements SolrCloseable {
    * @lucene.internal
    */
   public void forciblyRefreshAllClusterStateSlow() throws KeeperException, InterruptedException {
-    // GraphChecker: a pairing's hold of a view this refresh re-points waits before the update lock
-    // (MessageDoors#refreshing), never in a decode under it.
-    for (String coll : watchedCollectionStates.keySet()) {
-      MessageDoors.refreshing(SolrZkClient.CAUSYNTH_ZK, getCollectionPath(coll));
-    }
-    synchronized (getUpdateLock()) {
-      if (clusterState == null) {
-        // Never initialized, just run normal initialization.
-        createClusterStateWatchersAndUpdate();
-        return;
-      }
-      // No need to set watchers because we should already have watchers registered for everything.
-      refreshCollectionList(null);
-      refreshLiveNodes(null);
-      refreshLegacyClusterState(null);
-      // Need a copy so we don't delete from what we're iterating over.
-      Collection<String> safeCopy = new ArrayList<>(watchedCollectionStates.keySet());
-      Set<String> updatedCollections = new HashSet<>();
-      for (String coll : safeCopy) {
-        DocCollection newState = fetchCollectionState(coll, null, null);
-        if (updateWatchedCollection(coll, newState)) {
-          updatedCollections.add(coll);
+    // GraphChecker: the system's own refresh reads the store as it stands, so no pairing's hold of a
+    // view waits on its decodes (MessageDoors#refreshStarting).
+    long causynthRefresh = MessageDoors.refreshStarting();
+    try {
+      synchronized (getUpdateLock()) {
+        if (clusterState == null) {
+          // Never initialized, just run normal initialization.
+          createClusterStateWatchersAndUpdate();
+          return;
         }
+        // No need to set watchers because we should already have watchers registered for everything.
+        refreshCollectionList(null);
+        refreshLiveNodes(null);
+        refreshLegacyClusterState(null);
+        // Need a copy so we don't delete from what we're iterating over.
+        Collection<String> safeCopy = new ArrayList<>(watchedCollectionStates.keySet());
+        Set<String> updatedCollections = new HashSet<>();
+        for (String coll : safeCopy) {
+          DocCollection newState = fetchCollectionState(coll, null, null);
+          if (updateWatchedCollection(coll, newState)) {
+            updatedCollections.add(coll);
+          }
+        }
+        constructState(updatedCollections);
       }
-      constructState(updatedCollections);
+    } finally {
+      MessageDoors.refreshEnded(causynthRefresh);
     }
   }
 
@@ -451,52 +453,54 @@ public class ZkStateReader implements SolrCloseable {
    */
   //TODO shouldn't we call ZooKeeper.sync() at the right places to prevent reading a stale value?  We do so for aliases.
   public void forceUpdateCollection(String collection) throws KeeperException, InterruptedException {
-    // GraphChecker: a pairing's hold of this node's view of the collection
-    // waits before the update lock is taken (MessageDoors#refreshing), never
-    // in the decode under it, which a held reader's own work may need.
-    MessageDoors.refreshing(SolrZkClient.CAUSYNTH_ZK, getCollectionPath(collection));
-
-    synchronized (getUpdateLock()) {
-      if (clusterState == null) {
-        log.warn("ClusterState watchers have not been initialized");
-        return;
-      }
-
-      ClusterState.CollectionRef ref = clusterState.getCollectionRef(collection);
-      if (ref == null || legacyCollectionStates.containsKey(collection)) {
-        // We either don't know anything about this collection (maybe it's new?) or it's legacy.
-        // First update the legacy cluster state.
-        log.debug("Checking legacy cluster state for collection {}", collection);
-        refreshLegacyClusterState(null);
-        if (!legacyCollectionStates.containsKey(collection)) {
-          // No dice, see if a new collection just got created.
-          LazyCollectionRef tryLazyCollection = new LazyCollectionRef(collection);
-          if (tryLazyCollection.get() != null) {
-            // What do you know, it exists!
-            log.debug("Adding lazily-loaded reference for collection {}", collection);
-            lazyCollectionStates.putIfAbsent(collection, tryLazyCollection);
-            constructState(Collections.singleton(collection));
-          }
-        }
-      } else if (ref.isLazilyLoaded()) {
-        log.debug("Refreshing lazily-loaded state for collection {}", collection);
-        if (ref.get() != null) {
+    // GraphChecker: the system's own refresh reads the store as it stands, so no pairing's hold of a
+    // view waits on its decodes (MessageDoors#refreshStarting).
+    long causynthRefresh = MessageDoors.refreshStarting();
+    try {
+      synchronized (getUpdateLock()) {
+        if (clusterState == null) {
+          log.warn("ClusterState watchers have not been initialized");
           return;
         }
-        // Edge case: if there's no external collection, try refreshing legacy cluster state in case it's there.
-        refreshLegacyClusterState(null);
-      } else if (watchedCollectionStates.containsKey(collection)) {
-        // Exists as a watched collection, force a refresh.
-        log.debug("Forcing refresh of watched collection state for {}", collection);
-        DocCollection newState = fetchCollectionState(collection, null, null);
-        if (updateWatchedCollection(collection, newState)) {
-          constructState(Collections.singleton(collection));
-        }
-      } else {
-        log.error("Collection {} is not lazy or watched!", collection);
-      }
-    }
 
+        ClusterState.CollectionRef ref = clusterState.getCollectionRef(collection);
+        if (ref == null || legacyCollectionStates.containsKey(collection)) {
+          // We either don't know anything about this collection (maybe it's new?) or it's legacy.
+          // First update the legacy cluster state.
+          log.debug("Checking legacy cluster state for collection {}", collection);
+          refreshLegacyClusterState(null);
+          if (!legacyCollectionStates.containsKey(collection)) {
+            // No dice, see if a new collection just got created.
+            LazyCollectionRef tryLazyCollection = new LazyCollectionRef(collection);
+            if (tryLazyCollection.get() != null) {
+              // What do you know, it exists!
+              log.debug("Adding lazily-loaded reference for collection {}", collection);
+              lazyCollectionStates.putIfAbsent(collection, tryLazyCollection);
+              constructState(Collections.singleton(collection));
+            }
+          }
+        } else if (ref.isLazilyLoaded()) {
+          log.debug("Refreshing lazily-loaded state for collection {}", collection);
+          if (ref.get() != null) {
+            return;
+          }
+          // Edge case: if there's no external collection, try refreshing legacy cluster state in case it's there.
+          refreshLegacyClusterState(null);
+        } else if (watchedCollectionStates.containsKey(collection)) {
+          // Exists as a watched collection, force a refresh.
+          log.debug("Forcing refresh of watched collection state for {}", collection);
+          DocCollection newState = fetchCollectionState(collection, null, null);
+          if (updateWatchedCollection(collection, newState)) {
+            constructState(Collections.singleton(collection));
+          }
+        } else {
+          log.error("Collection {} is not lazy or watched!", collection);
+        }
+      }
+
+    } finally {
+      MessageDoors.refreshEnded(causynthRefresh);
+    }
   }
 
   /**
@@ -829,13 +833,11 @@ public class ZkStateReader implements SolrCloseable {
     }
 
     @Override
-    public DocCollection get(boolean allowCached) {
-      // GraphChecker: a pairing's hold of this node's view of the collection waits before this
-      // ref's monitor is taken (MessageDoors#refreshing), never in a decode under it.
-      if (!allowCached || lastUpdateTime < 0 || System.nanoTime() - lastUpdateTime > LAZY_CACHE_TIME) {
-        MessageDoors.refreshing(SolrZkClient.CAUSYNTH_ZK, getCollectionPath(collName));
-      }
-      synchronized (this) {
+    public synchronized DocCollection get(boolean allowCached) {
+      // GraphChecker: a lazy collection's fetch reads the store as it stands, so no pairing's hold of
+      // the view waits on its decode (MessageDoors#refreshStarting).
+      long causynthRefresh = MessageDoors.refreshStarting();
+      try {
         gets.incrementAndGet();
         if (!allowCached || lastUpdateTime < 0 || System.nanoTime() - lastUpdateTime > LAZY_CACHE_TIME) {
           boolean shouldFetch = true;
@@ -855,6 +857,8 @@ public class ZkStateReader implements SolrCloseable {
           }
         }
         return cachedDocCollection;
+      } finally {
+        MessageDoors.refreshEnded(causynthRefresh);
       }
     }
 
