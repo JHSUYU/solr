@@ -83,7 +83,14 @@ public class TestCausynthReindexAbortAlias extends SolrCloudTestCase {
       waitForState("the reindex turned its source read-only", SOURCE,
           (liveNodes, state) -> state != null && state.isReadOnly());
 
-      CollectionAdminRequest.createAlias(ALIAS, TARGET).process(client);
+      // Each alias step tolerates its failure, so a fault at either still
+      // reaches the explicit abort below (a failed create must not end the
+      // test while the reindex waits on its latch).
+      try {
+        CollectionAdminRequest.createAlias(ALIAS, TARGET).process(client);
+      } catch (Exception e) {
+        log.warn("creating alias {} failed", ALIAS, e);
+      }
       try {
         CollectionAdminRequest.deleteAlias(ALIAS).process(client);
       } catch (Exception e) {
