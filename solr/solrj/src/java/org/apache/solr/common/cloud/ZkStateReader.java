@@ -2434,7 +2434,9 @@ public class ZkStateReader implements SolrCloseable {
     public void run() {
       while (!Thread.interrupted()) {
         try {
-          Thread.sleep(60000);
+          // GraphChecker: in an automatic cluster the cleaner never wakes, as in a recording
+          // shorter than its period (a replay many times slower woke it dozens of times).
+          Thread.sleep(CausynthBounds.of(60000, TimeUnit.MILLISECONDS));
         } catch (InterruptedException e) {
           // Executor shutdown will send us an interrupt
           break;
