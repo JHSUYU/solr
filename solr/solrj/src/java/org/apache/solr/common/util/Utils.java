@@ -422,8 +422,17 @@ public class Utils {
 //        o = ((IteratorWriter) o).toList(new ArrayList<>());
 //      }
 //    }
-    new MapWriterJSONWriter(out, 2).write(o); // indentation by default
-    byte[] utf8 = toUTF8(out);
+    // GraphChecker: the serializer runs with the concolic VM's propagation paused; a store's
+    // content crosses leaf by leaf from the document below, never through these bytes
+    // (MessageDoors#serializing).
+    boolean paused = MessageDoors.serializing();
+    byte[] utf8;
+    try {
+      new MapWriterJSONWriter(out, 2).write(o); // indentation by default
+      utf8 = toUTF8(out);
+    } finally {
+      MessageDoors.serialized(paused);
+    }
     // GraphChecker: the document these bytes are, as the writer holds it,
     // for a store write of them to export leaf by leaf (MessageDoors#jsonWritten).
     if (MessageDoors.capturingContent()) MessageDoors.jsonWritten(utf8, CausynthView.of(o));
