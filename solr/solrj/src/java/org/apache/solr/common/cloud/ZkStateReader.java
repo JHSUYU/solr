@@ -446,6 +446,10 @@ public class ZkStateReader implements SolrCloseable {
    */
   //TODO shouldn't we call ZooKeeper.sync() at the right places to prevent reading a stale value?  We do so for aliases.
   public void forceUpdateCollection(String collection) throws KeeperException, InterruptedException {
+    // GraphChecker: a pairing's hold of this node's view of the collection
+    // waits before the update lock is taken (MessageDoors#refreshing), never
+    // in the decode under it, which a held reader's own work may need.
+    MessageDoors.refreshing(SolrZkClient.CAUSYNTH_ZK, getCollectionPath(collection));
 
     synchronized (getUpdateLock()) {
       if (clusterState == null) {
