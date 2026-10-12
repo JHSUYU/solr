@@ -46,7 +46,8 @@ import org.junit.Test;
  *
  * <p>The wait for the asynchronous task is a bounded number of status
  * requests, not a time bound and not an assertion: in a world where the task
- * never runs, the wait ends and the add is what fails.</p>
+ * never runs, the wait ends and the add is what fails.  A task the status
+ * reports FAILED ends the test without the add.</p>
  */
 @LuceneTestCase.Slow
 public class TestCausynthOverseerLockLeak extends SolrCloudTestCase {
@@ -80,6 +81,11 @@ public class TestCausynthOverseerLockLeak extends SolrCloudTestCase {
         break;
       }
       Thread.sleep(1000);
+    }
+    // A reported failure is not the leak: the client knows the collection stays read-only
+    // (a failed core RELOAD keeps SolrCore.readOnly), so it does not add.
+    if (state == RequestStatusState.FAILED) {
+      return;
     }
 
     client.add(COLLECTION, new SolrInputDocument("id", "1"));
