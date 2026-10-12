@@ -17,9 +17,11 @@
 package org.apache.solr.cloud;
 
 import java.util.Collections;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.lucene.util.LuceneTestCase;
 import org.apache.solr.client.solrj.SolrQuery;
+import org.apache.solr.client.solrj.embedded.JettySolrRunner;
 import org.apache.solr.client.solrj.impl.CloudSolrClient;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
 import org.apache.solr.client.solrj.response.RequestStatusState;
@@ -47,7 +49,8 @@ import org.junit.Test;
  * <p>The wait for the asynchronous task is a bounded number of status
  * requests, not a time bound and not an assertion: in a world where the task
  * never runs, the wait ends and the add is what fails.  A task the status
- * reports FAILED ends the test without the add.</p>
+ * reports FAILED ends the test without the add; one it reports COMPLETED adds
+ * once every node's view of the collection is writable again.</p>
  */
 @LuceneTestCase.Slow
 public class TestCausynthOverseerLockLeak extends SolrCloudTestCase {
@@ -86,6 +89,16 @@ public class TestCausynthOverseerLockLeak extends SolrCloudTestCase {
     // (a failed core RELOAD keeps SolrCore.readOnly), so it does not add.
     if (state == RequestStatusState.FAILED) {
       return;
+    }
+    // A completed task is not the leak either: the add follows once every node's view of the
+    // collection says writable (its view of state.json may still lag the Overseer's write).
+    if (state == RequestStatusState.COMPLETED) {
+      for (JettySolrRunner jetty : cluster.getJettySolrRunners()) {
+        if (jetty.isRunning()) {
+          jetty.getCoreContainer().getZkController().getZkStateReader().waitForState(COLLECTION, 30,
+              TimeUnit.SECONDS, (nodes, collection) -> collection != null && !collection.isReadOnly());
+        }
+      }
     }
 
     client.add(COLLECTION, new SolrInputDocument("id", "1"));
