@@ -52,6 +52,7 @@ import org.apache.solr.common.cloud.DocCollection;
 import org.apache.solr.common.cloud.Replica;
 import org.apache.solr.common.cloud.Slice;
 import org.apache.solr.common.cloud.ZkStateReader;
+import org.apache.solr.common.util.CausynthBounds;
 import org.apache.solr.common.util.TimeSource;
 import org.apache.solr.core.SolrCore;
 import org.apache.solr.util.LogLevel;
@@ -232,6 +233,13 @@ public class TestPullReplica extends SolrCloudTestCase {
     while (true) {
       numDocs++;
       cluster.getSolrClient().add(collectionName, new SolrInputDocument("id", String.valueOf(numDocs), "foo", "bar"));
+      // GraphChecker: as a workload (solr-adhoc-38, its declared occurrence the leader's defensive
+      // check of this first add) the test ends here; the PULL replica's restart, the replication
+      // waits, the reload and the second add below are past it, and their poll-driven index
+      // fetches alone stalled the concolic seed replay (a fetch tick held at its recorded slot).
+      if (CausynthBounds.automatic()) {
+        return;
+      }
       cluster.getSolrClient().commit(collectionName);
       log.info("Committed doc {} to leader", numDocs);
 
