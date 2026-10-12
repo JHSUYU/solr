@@ -2255,7 +2255,11 @@ public class ZkStateReader implements SolrCloseable {
     private volatile Aliases aliases = Aliases.EMPTY;
 
     public Aliases getAliases() {
-      return aliases; // volatile read
+      Aliases held = aliases; // volatile read
+      // GraphChecker: what a caller holds from here is this node's view of the aliases, the version
+      // the decode it came from made (MessageDoors#viewed).
+      MessageDoors.viewed(SolrZkClient.CAUSYNTH_ZK, ALIASES, held);
+      return held;
     }
 
     /**
