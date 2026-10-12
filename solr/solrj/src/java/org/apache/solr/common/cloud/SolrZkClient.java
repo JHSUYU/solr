@@ -370,7 +370,33 @@ public class SolrZkClient implements Closeable {
       data = keeper.getData(path, wrapWatcher(watcher), read);
     }
     causynthRead(path, read);
+    try {
+      causynthReplied();
+    } catch (KeeperException lost) {
+      causynthUnwatch(path, watcher);
+      throw lost;
+    }
     return data;
+  }
+
+  /** GraphChecker: where a read's reply reaches its caller, after the retries.  The store
+   *  read's door is woven before it: a fault there is the reply lost -- ZooKeeper applied
+   *  the read, and a client registers a watch only with a delivered reply. */
+  private static void causynthReplied() throws KeeperException {
+  }
+
+  /** GraphChecker: a lost reply registered no watch, so the one the read set is removed on
+   *  this client alone; a failure to remove it is only logged, the caller sees the fault. */
+  private void causynthUnwatch(String path, Watcher watcher) {
+    if (watcher == null) return;
+    try {
+      keeper.removeWatches(path, wrapWatcher(watcher), Watcher.WatcherType.Data, true);
+    } catch (KeeperException | RuntimeException e) {
+      log.warn("GraphChecker: the watch of a lost reply at {} stays", path, e);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      log.warn("GraphChecker: the watch of a lost reply at {} stays", path, e);
+    }
   }
 
   /** What a watcher is, the same in every run: its class, a lambda's by its enclosing one. */
