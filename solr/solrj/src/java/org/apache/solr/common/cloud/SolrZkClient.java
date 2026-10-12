@@ -349,7 +349,6 @@ public class SolrZkClient implements Closeable {
     } else {
       children = keeper.getChildren(path, wrapWatcher(watcher));
     }
-    causynthWatched(path, watcher);
     return children;
   }
 
@@ -365,7 +364,6 @@ public class SolrZkClient implements Closeable {
     } else {
       children = keeper.getChildren(path, wrapWatcher(watcher), stat);
     }
-    causynthWatched(path, watcher);
     return children;
   }
 
@@ -400,13 +398,14 @@ public class SolrZkClient implements Closeable {
   private static void causynthReplied() throws KeeperException {
   }
 
-  /** GraphChecker: per watcher, the paths whose read's reply a fault lost after ZooKeeper
-   *  applied it (#causynthReplied).  The server fires that watch, and a client that never got
-   *  the reply has no watcher registered for it and drops the event: its next event for the
-   *  path is dropped here (#causynthDropped), never delivered.  Removing the client's watch
-   *  instead (removeWatches) delivers a DataWatchRemoved to the watcher, which re-reads and
-   *  re-arms at once -- a callback a lost reply never makes -- and drops the server's watch
-   *  and any earlier registration with it. */
+  /** GraphChecker: per watcher, the paths whose data read's reply a fault lost after
+   *  ZooKeeper applied it (#causynthReplied): a data watch.  The server fires that watch, and
+   *  a client that never got the reply has no watcher registered for it and drops the event:
+   *  its next data event for the path is dropped here (#causynthDropped), never delivered; a
+   *  child watch of the same watcher and path is another registration, neither dropped nor
+   *  healing it.  Removing the client's watch instead (removeWatches) delivers a
+   *  DataWatchRemoved to the watcher, which re-reads and re-arms at once -- a callback a lost
+   *  reply never makes -- and drops the server's watch and any earlier registration with it. */
   private final Map<Watcher, Set<String>> causynthLost =
       Collections.synchronizedMap(new IdentityHashMap<>());
 
@@ -415,17 +414,21 @@ public class SolrZkClient implements Closeable {
     causynthLost.computeIfAbsent(watcher, w -> ConcurrentHashMap.newKeySet()).add(path);
   }
 
-  /** GraphChecker: a read whose reply arrived registers the watch: a lost one before it is
-   *  healed. */
+  /** GraphChecker: a data read (getData, exists) whose reply arrived registers the data
+   *  watch: a lost one before it is healed. */
   private void causynthWatched(String path, Watcher watcher) {
     if (watcher == null) return;
     Set<String> lost = causynthLost.get(watcher);
     if (lost != null) lost.remove(path);
   }
 
-  /** GraphChecker: whether the event is the one a lost reply's unregistered watch drops. */
+  /** GraphChecker: whether the event is the data event a lost reply's unregistered data
+   *  watch drops (never a child event: NodeChildrenChanged). */
   private boolean causynthDropped(Watcher watcher, WatchedEvent event) {
-    if (event.getPath() == null) return false;
+    if (event.getPath() == null
+        || event.getType() == Watcher.Event.EventType.NodeChildrenChanged) {
+      return false;
+    }
     Set<String> lost = causynthLost.get(watcher);
     return lost != null && lost.remove(event.getPath());
   }
