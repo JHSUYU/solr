@@ -417,6 +417,11 @@ public class ZkStateReader implements SolrCloseable {
    * @lucene.internal
    */
   public void forciblyRefreshAllClusterStateSlow() throws KeeperException, InterruptedException {
+    // GraphChecker: a pairing's hold of a view this refresh re-points waits before the update lock
+    // (MessageDoors#refreshing), never in a decode under it.
+    for (String coll : watchedCollectionStates.keySet()) {
+      MessageDoors.refreshing(SolrZkClient.CAUSYNTH_ZK, getCollectionPath(coll));
+    }
     synchronized (getUpdateLock()) {
       if (clusterState == null) {
         // Never initialized, just run normal initialization.
@@ -824,26 +829,33 @@ public class ZkStateReader implements SolrCloseable {
     }
 
     @Override
-    public synchronized DocCollection get(boolean allowCached) {
-      gets.incrementAndGet();
+    public DocCollection get(boolean allowCached) {
+      // GraphChecker: a pairing's hold of this node's view of the collection waits before this
+      // ref's monitor is taken (MessageDoors#refreshing), never in a decode under it.
       if (!allowCached || lastUpdateTime < 0 || System.nanoTime() - lastUpdateTime > LAZY_CACHE_TIME) {
-        boolean shouldFetch = true;
-        if (cachedDocCollection != null) {
-          Stat freshStats = null;
-          try {
-            freshStats = zkClient.exists(getCollectionPath(collName), null, true);
-          } catch (Exception e) {
-          }
-          if (freshStats != null && !cachedDocCollection.isModified(freshStats.getVersion(), freshStats.getCversion())) {
-            shouldFetch = false;
-          }
-        }
-        if (shouldFetch) {
-          cachedDocCollection = getCollectionLive(collName);
-          lastUpdateTime = System.nanoTime();
-        }
+        MessageDoors.refreshing(SolrZkClient.CAUSYNTH_ZK, getCollectionPath(collName));
       }
-      return cachedDocCollection;
+      synchronized (this) {
+        gets.incrementAndGet();
+        if (!allowCached || lastUpdateTime < 0 || System.nanoTime() - lastUpdateTime > LAZY_CACHE_TIME) {
+          boolean shouldFetch = true;
+          if (cachedDocCollection != null) {
+            Stat freshStats = null;
+            try {
+              freshStats = zkClient.exists(getCollectionPath(collName), null, true);
+            } catch (Exception e) {
+            }
+            if (freshStats != null && !cachedDocCollection.isModified(freshStats.getVersion(), freshStats.getCversion())) {
+              shouldFetch = false;
+            }
+          }
+          if (shouldFetch) {
+            cachedDocCollection = getCollectionLive(collName);
+            lastUpdateTime = System.nanoTime();
+          }
+        }
+        return cachedDocCollection;
+      }
     }
 
     @Override
@@ -1404,6 +1416,9 @@ public class ZkStateReader implements SolrCloseable {
           }
         }
 
+        // GraphChecker: a pairing's hold of this node's view of the collection waits before the
+        // refresh lock (MessageDoors#refreshing), never in the decode under it.
+        MessageDoors.refreshing(SolrZkClient.CAUSYNTH_ZK, getCollectionPath(coll));
         synchronized (collectionRefreshLock(coll)) {
           DocCollection newState = fetchCollectionState(coll, this, collectionPath);
           updateWatchedCollection(coll, newState);
@@ -1427,6 +1442,7 @@ public class ZkStateReader implements SolrCloseable {
       Stat stat = new Stat();
       List<String> replicaStates = null;
       try {
+        MessageDoors.refreshing(SolrZkClient.CAUSYNTH_ZK, getCollectionPath(coll));
         synchronized (collectionRefreshLock(coll)) {
           replicaStates = zkClient.getChildren(collectionPath, this, stat, true);
           PerReplicaStates newStates = new PerReplicaStates(collectionPath, stat.getCversion(), replicaStates);
