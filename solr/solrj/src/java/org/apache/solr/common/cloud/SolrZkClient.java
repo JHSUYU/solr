@@ -27,7 +27,12 @@ import java.lang.invoke.MethodHandles;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.function.BiFunction;
@@ -309,11 +314,14 @@ public class SolrZkClient implements Closeable {
   public Stat exists(final String path, final Watcher watcher, boolean retryOnConnLoss)
       throws KeeperException, InterruptedException {
     causynthReading(path);
+    Stat found;
     if (retryOnConnLoss) {
-      return zkCmdExecutor.retryOperation(() -> keeper.exists(path, wrapWatcher(watcher)));
+      found = zkCmdExecutor.retryOperation(() -> keeper.exists(path, wrapWatcher(watcher)));
     } else {
-      return keeper.exists(path, wrapWatcher(watcher));
+      found = keeper.exists(path, wrapWatcher(watcher));
     }
+    causynthWatched(path, watcher);
+    return found;
   }
 
   /**
@@ -335,11 +343,14 @@ public class SolrZkClient implements Closeable {
   public List<String> getChildren(final String path, final Watcher watcher, boolean retryOnConnLoss)
       throws KeeperException, InterruptedException {
     causynthReading(path);
+    List<String> children;
     if (retryOnConnLoss) {
-      return zkCmdExecutor.retryOperation(() -> keeper.getChildren(path, wrapWatcher(watcher)));
+      children = zkCmdExecutor.retryOperation(() -> keeper.getChildren(path, wrapWatcher(watcher)));
     } else {
-      return keeper.getChildren(path, wrapWatcher(watcher));
+      children = keeper.getChildren(path, wrapWatcher(watcher));
     }
+    causynthWatched(path, watcher);
+    return children;
   }
 
   /**
@@ -348,11 +359,14 @@ public class SolrZkClient implements Closeable {
   public List<String> getChildren(final String path, final Watcher watcher,Stat stat, boolean retryOnConnLoss)
       throws KeeperException, InterruptedException {
     causynthReading(path);
+    List<String> children;
     if (retryOnConnLoss) {
-      return zkCmdExecutor.retryOperation(() -> keeper.getChildren(path, wrapWatcher(watcher) , stat));
+      children = zkCmdExecutor.retryOperation(() -> keeper.getChildren(path, wrapWatcher(watcher) , stat));
     } else {
-      return keeper.getChildren(path, wrapWatcher(watcher), stat);
+      children = keeper.getChildren(path, wrapWatcher(watcher), stat);
     }
+    causynthWatched(path, watcher);
+    return children;
   }
 
   /**
@@ -373,9 +387,10 @@ public class SolrZkClient implements Closeable {
     try {
       causynthReplied();
     } catch (KeeperException lost) {
-      causynthUnwatch(path, watcher);
+      causynthLose(path, watcher);
       throw lost;
     }
+    causynthWatched(path, watcher);
     return data;
   }
 
@@ -385,18 +400,34 @@ public class SolrZkClient implements Closeable {
   private static void causynthReplied() throws KeeperException {
   }
 
-  /** GraphChecker: a lost reply registered no watch, so the one the read set is removed on
-   *  this client alone; a failure to remove it is only logged, the caller sees the fault. */
-  private void causynthUnwatch(String path, Watcher watcher) {
+  /** GraphChecker: per watcher, the paths whose read's reply a fault lost after ZooKeeper
+   *  applied it (#causynthReplied).  The server fires that watch, and a client that never got
+   *  the reply has no watcher registered for it and drops the event: its next event for the
+   *  path is dropped here (#causynthDropped), never delivered.  Removing the client's watch
+   *  instead (removeWatches) delivers a DataWatchRemoved to the watcher, which re-reads and
+   *  re-arms at once -- a callback a lost reply never makes -- and drops the server's watch
+   *  and any earlier registration with it. */
+  private final Map<Watcher, Set<String>> causynthLost =
+      Collections.synchronizedMap(new IdentityHashMap<>());
+
+  private void causynthLose(String path, Watcher watcher) {
     if (watcher == null) return;
-    try {
-      keeper.removeWatches(path, wrapWatcher(watcher), Watcher.WatcherType.Data, true);
-    } catch (KeeperException | RuntimeException e) {
-      log.warn("GraphChecker: the watch of a lost reply at {} stays", path, e);
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      log.warn("GraphChecker: the watch of a lost reply at {} stays", path, e);
-    }
+    causynthLost.computeIfAbsent(watcher, w -> ConcurrentHashMap.newKeySet()).add(path);
+  }
+
+  /** GraphChecker: a read whose reply arrived registers the watch: a lost one before it is
+   *  healed. */
+  private void causynthWatched(String path, Watcher watcher) {
+    if (watcher == null) return;
+    Set<String> lost = causynthLost.get(watcher);
+    if (lost != null) lost.remove(path);
+  }
+
+  /** GraphChecker: whether the event is the one a lost reply's unregistered watch drops. */
+  private boolean causynthDropped(Watcher watcher, WatchedEvent event) {
+    if (event.getPath() == null) return false;
+    Set<String> lost = causynthLost.get(watcher);
+    return lost != null && lost.remove(event.getPath());
   }
 
   /** What a watcher is, the same in every run: its class, a lambda's by its enclosing one. */
@@ -1017,6 +1048,9 @@ public class SolrZkClient implements Closeable {
 
     @Override
     public void process(final WatchedEvent event) {
+      // GraphChecker: the event of a watch whose reply a fault lost is dropped, as a client
+      // with no watcher registered for it drops it.
+      if (causynthDropped(watcher, event)) return;
       log.debug("Submitting job to respond to event {}", event);
       try {
         // GraphChecker: a watch callback is no daemon turn.  ZooKeeper folds the
