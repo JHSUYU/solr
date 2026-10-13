@@ -22,12 +22,16 @@ import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.TimeUnit;
 
 import edu.uva.liftlab.graphchecker.runtime.MessageDoors;
+import edu.uva.liftlab.graphchecker.runtime.Sessions;
 import org.apache.solr.client.solrj.embedded.JettySolrRunner;
 import org.apache.solr.client.solrj.impl.BaseCloudSolrClient;
 import org.apache.solr.client.solrj.impl.CloudSolrClient;
 import org.apache.solr.client.solrj.impl.ZkClientClusterStateProvider;
+import org.apache.solr.common.cloud.SolrZkClient;
 import org.apache.solr.common.util.CausynthBounds;
 import org.apache.solr.common.util.CausynthRandom;
 import org.apache.solr.core.CoreContainer;
@@ -83,8 +87,12 @@ public final class CausynthSolrCluster {
   private static long suiteRequest;
   private static long testRequest;
 
+  /** The in-process ZooKeeper servers the clusters run on ({@link #configure}). */
+  private static final List<ZkTestServer> SERVERS = new CopyOnWriteArrayList<>();
+
   static {
     JettySolrRunner.causynthStarts = new Starts();
+    Sessions.expirer(CausynthSolrCluster::expire);
   }
 
   private CausynthSolrCluster() {
@@ -97,9 +105,47 @@ public final class CausynthSolrCluster {
     }
     if (zkServer != null) {
       zkServer.setMaxSessionTimeout(CausynthBounds.NEVER_MS);
+      SERVERS.add(zkServer);
     }
     // How long a collections API call waits for the Overseer to answer.
     org.apache.solr.handler.admin.CollectionsHandler.DEFAULT_COLLECTION_OP_TIMEOUT = CausynthBounds.NEVER_MS;
+  }
+
+  /**
+   * A planted SessionExpired made real (GraphChecker's {@code Sessions#expires}):
+   * the session of the door's client expired at the in-process server that
+   * holds it, as {@code ChaosMonkey#expireSession} does -- the server deletes
+   * its ephemeral nodes, and the client's next operations fail by themselves
+   * until its ConnectionManager makes a new session and re-registers.  The
+   * server's close is awaited (bounded), so every run sees the same store
+   * after it.  False for an owner that is no SolrZkClient, or a session no
+   * registered server holds.
+   */
+  static boolean expire(Object owner) {
+    if (!(owner instanceof SolrZkClient)) {
+      return false;
+    }
+    long session = ((SolrZkClient) owner).getSolrZooKeeper().getSessionId();
+    for (ZkTestServer server : SERVERS) {
+      Map<Long, Integer> sessions;
+      try {
+        sessions = server.getZKDatabase().getSessionWithTimeOuts();
+      } catch (RuntimeException shutDown) {
+        continue;
+      }
+      if (!sessions.containsKey(session)) {
+        continue;
+      }
+      server.expire(session);
+      long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(30);
+      while ((sessions.containsKey(session)
+          || !server.getZKDatabase().getEphemerals(session).isEmpty())
+          && System.nanoTime() < deadline) {
+        Thread.yield();
+      }
+      return true;
+    }
+    return false;
   }
 
   /**
