@@ -695,28 +695,11 @@ public class SolrZkClient implements Closeable {
         if (!retryOnConnLoss) retry = false;
       }
       try {
-        if (retry) {
-          final CreateMode finalMode = mode;
-          final byte[] finalBytes = bytes;
-          zkCmdExecutor.retryOperation(() -> {
-            long store = causynthStoring(currentPath, finalMode);
-            try {
-              String made = keeper.create(currentPath, finalBytes, zkACLProvider.getACLsToAdd(currentPath), finalMode);
-              causynthWrote(made, 0, finalBytes);
-            } finally {
-              causynthStored(store);
-            }
-            return null;
-          });
-        } else {
-          long store = causynthStoring(currentPath, mode);
-          try {
-            String made = keeper.create(currentPath, bytes, zkACLProvider.getACLsToAdd(currentPath), mode);
-            causynthWrote(made, 0, bytes);
-          } finally {
-            causynthStored(store);
-          }
-        }
+        // GraphChecker: each node is made by create, with the same ACLs, retry
+        // flag and store hooks; its door stands where its retries return, so a
+        // ConnectionLoss planted there escapes past ZkCmdExecutor's retries, as
+        // a flapping connection's does, and no attempt the recording lacks runs.
+        create(currentPath, bytes, mode, retry);
       } catch (NoAuthException e) {
         // in auth cases, we may not have permission for an earlier part of a path, which is fine
         if (i == paths.length - 1 || !exists(currentPath, retryOnConnLoss)) {
