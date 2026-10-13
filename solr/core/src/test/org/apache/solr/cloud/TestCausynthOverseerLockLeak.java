@@ -48,7 +48,10 @@ import org.junit.Test;
  *
  * <p>The wait for the asynchronous task is a bounded number of status
  * requests, not a time bound and not an assertion: in a world where the task
- * never runs, the wait ends and the add is what fails.  A task the status
+ * never runs, the wait ends and the add is what fails.  150 polls, a second
+ * apart: long enough for a slow but healthy path -- an Overseer failover that
+ * runs the queued task again, a late Runner -- to reach a terminal status,
+ * which a leaked lock never does.  A task the status
  * reports FAILED ends the test without the add; one it reports COMPLETED adds
  * once every node's view of the collection is writable again.</p>
  */
@@ -56,7 +59,7 @@ import org.junit.Test;
 public class TestCausynthOverseerLockLeak extends SolrCloudTestCase {
   private static final String COLLECTION = "causynthLock";
   private static final String REQUEST = "causynthLock-writable";
-  private static final int STATUS_POLLS = 30;
+  private static final int STATUS_POLLS = 150;
 
   @BeforeClass
   public static void setupCluster() throws Exception {
