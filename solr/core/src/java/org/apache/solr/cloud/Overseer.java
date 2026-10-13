@@ -244,11 +244,7 @@ public class Overseer implements SolrCloseable {
           LinkedList<Pair<String, byte[]>> queue = null;
           try {
             // We do not need to filter any nodes here cause all processed nodes are removed once we flush clusterstate
-            // GraphChecker: in an automatic cluster the idle wait never times out, so the
-            // loop wakes only when the queue's watch says a message arrived (or close
-            // interrupts it): a timeout's wake is the clock's, and a replay many times
-            // slower than its recording woke a different number of times.
-            queue = new LinkedList<>(stateUpdateQueue.peekElements(1000, CausynthBounds.millis(3000), (x) -> true));
+            queue = new LinkedList<>(stateUpdateQueue.peekElements(1000, 3000L, (x) -> true));
           } catch (KeeperException.SessionExpiredException e) {
             log.warn("Solr cannot talk to ZK, exiting Overseer main queue loop", e);
             return;
