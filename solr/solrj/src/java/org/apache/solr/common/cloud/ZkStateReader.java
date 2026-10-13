@@ -1420,9 +1420,6 @@ public class ZkStateReader implements SolrCloseable {
           }
         }
 
-        // GraphChecker: a pairing's hold of this node's view of the collection waits before the
-        // refresh lock (MessageDoors#refreshing), never in the decode under it.
-        MessageDoors.refreshing(SolrZkClient.CAUSYNTH_ZK, getCollectionPath(coll));
         synchronized (collectionRefreshLock(coll)) {
           DocCollection newState = fetchCollectionState(coll, this, collectionPath);
           updateWatchedCollection(coll, newState);
@@ -1446,7 +1443,6 @@ public class ZkStateReader implements SolrCloseable {
       Stat stat = new Stat();
       List<String> replicaStates = null;
       try {
-        MessageDoors.refreshing(SolrZkClient.CAUSYNTH_ZK, getCollectionPath(coll));
         synchronized (collectionRefreshLock(coll)) {
           replicaStates = zkClient.getChildren(collectionPath, this, stat, true);
           PerReplicaStates newStates = new PerReplicaStates(collectionPath, stat.getCversion(), replicaStates);
@@ -2092,7 +2088,33 @@ public class ZkStateReader implements SolrCloseable {
   }
 
   // returns true if the state has changed
+  //
+  // GraphChecker: this node is about to publish a collection's state to its readers.  On a thread
+  // delivering a store notification, a pairing's hold of this node's view of the collection may
+  // defer the publication (MessageDoors#publishing): the thread goes on, every reader on the node
+  // keeps the state it had, as behind a slow event thread, and the publication applies later,
+  // under the locks the watch's own refresh takes (the collection's refresh lock, then the update
+  // lock for constructState).  Its compare below keeps the newest: a later synchronous refresh is
+  // never regressed by a deferred one.
   private boolean updateWatchedCollection(String coll, DocCollection newState) {
+    if (newState != null && MessageDoors.publishing(SolrZkClient.CAUSYNTH_ZK,
+        getCollectionPath(coll), newState.getZNodeVersion(), () -> {
+          boolean changed;
+          synchronized (collectionRefreshLock(coll)) {
+            changed = publishWatchedCollection(coll, newState);
+          }
+          if (changed) {
+            synchronized (getUpdateLock()) {
+              constructState(Collections.singleton(coll));
+            }
+          }
+        })) {
+      return false;
+    }
+    return publishWatchedCollection(coll, newState);
+  }
+
+  private boolean publishWatchedCollection(String coll, DocCollection newState) {
 
     if (newState == null) {
       log.debug("Removing cached collection state for [{}]", coll);
@@ -2397,6 +2419,16 @@ public class ZkStateReader implements SolrCloseable {
      * @return true if aliases have been updated to a new version, false otherwise
      */
     private boolean setIfNewer(Aliases newAliases) {
+      // GraphChecker: this node is about to publish its aliases; a pairing's hold of its view may
+      // defer it on a notification's thread (MessageDoors#publishing, as updateWatchedCollection).
+      if (MessageDoors.publishing(SolrZkClient.CAUSYNTH_ZK, ALIASES, newAliases.getZNodeVersion(),
+          () -> publishIfNewer(newAliases))) {
+        return false;
+      }
+      return publishIfNewer(newAliases);
+    }
+
+    private boolean publishIfNewer(Aliases newAliases) {
       assert newAliases.getZNodeVersion() >= 0;
       synchronized (this) {
         int cmp = Integer.compare(aliases.getZNodeVersion(), newAliases.getZNodeVersion());
