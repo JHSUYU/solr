@@ -91,14 +91,21 @@ public class TestCausynthSnapshotBackup extends SolrCloudTestCase {
     CollectionAdminRequest.createCollection(COLLECTION, "conf", 1, 1)
         .setCreateNodeSet(overseer).setMaxShardsPerNode(1).process(client);
     cluster.waitForActiveCollection(COLLECTION, 1, 1);
+    // The documents go in before the second replica, which recovers them from
+    // the leader: an update carries the client's view of the collection
+    // (_stateVer_), and one sent after the client saw the new replica ACTIVE
+    // makes the Overseer's node refresh its view to that version
+    // (ZkStateReader#compareStateVersions), so between ADDREPLICA and
+    // CREATESNAPSHOT nothing but the node's own watch moves its view, as in
+    // bug study #16.
+    client.add(COLLECTION, new SolrInputDocument("id", "1"));
+    client.add(COLLECTION, new SolrInputDocument("id", "2"));
+    client.commit(COLLECTION);
     // A second replica on the other node, with no final state to wait for:
     // the client waits for it ACTIVE in its own view.
     CollectionAdminRequest.addReplicaToShard(COLLECTION, "shard1").setNode(other)
         .process(client);
     cluster.waitForActiveCollection(COLLECTION, 1, 2);
-    client.add(COLLECTION, new SolrInputDocument("id", "1"));
-    client.add(COLLECTION, new SolrInputDocument("id", "2"));
-    client.commit(COLLECTION);
 
     new CollectionAdminRequest.CreateSnapshot(COLLECTION, SNAPSHOT).process(client);
 
