@@ -302,7 +302,11 @@ public class Overseer implements SolrCloseable {
               }
               if (isClosed) break;
               // if an event comes in the next 100ms batch it together
-              queue = new LinkedList<>(stateUpdateQueue.peekElements(1000, 100, node -> !processedNodes.contains(node)));
+              // GraphChecker: not in an automatic cluster, which writes each state
+              // message in its own turn anyway: it takes what the queue holds now,
+              // with no wait whose timeout's wake would be a turn of the clock's.
+              queue = new LinkedList<>(stateUpdateQueue.peekElements(1000,
+                  CausynthBounds.automatic() ? 0 : 100, node -> !processedNodes.contains(node)));
             }
             fallbackQueueSize = processedNodes.size();
             // we should force write all pending updates because the next iteration might sleep until there
