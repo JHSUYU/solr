@@ -320,6 +320,7 @@ public class SolrZkClient implements Closeable {
     } else {
       found = keeper.exists(path, wrapWatcher(watcher));
     }
+    causynthStoreRead(path, found == null ? -1 : found.getVersion(), "exists");
     causynthWatched(path, watcher);
     return found;
   }
@@ -330,11 +331,14 @@ public class SolrZkClient implements Closeable {
   public Boolean exists(final String path, boolean retryOnConnLoss)
       throws KeeperException, InterruptedException {
     causynthReading(path);
+    Stat found;
     if (retryOnConnLoss) {
-      return zkCmdExecutor.retryOperation(() -> keeper.exists(path, null) != null);
+      found = zkCmdExecutor.retryOperation(() -> keeper.exists(path, null));
     } else {
-      return keeper.exists(path, null) != null;
+      found = keeper.exists(path, null);
     }
+    causynthStoreRead(path, found == null ? -1 : found.getVersion(), "exists");
+    return found != null;
   }
 
   /**
@@ -349,6 +353,8 @@ public class SolrZkClient implements Closeable {
     } else {
       children = keeper.getChildren(path, wrapWatcher(watcher));
     }
+    // GraphChecker: this call returns no Stat, so no children version.
+    causynthStoreRead(path, -1, "getChildren");
     return children;
   }
 
@@ -364,6 +370,7 @@ public class SolrZkClient implements Closeable {
     } else {
       children = keeper.getChildren(path, wrapWatcher(watcher), stat);
     }
+    causynthStoreRead(path, stat == null ? -1 : stat.getCversion(), "getChildren");
     return children;
   }
 
@@ -496,6 +503,12 @@ public class SolrZkClient implements Closeable {
 
   private void causynthRead(String path, Stat stat, byte[] data) {
     MessageDoors.fetched(CAUSYNTH_ZK, path + "@" + stat.getVersion(), this, data);
+  }
+
+  /** A read at the store's call (exists, getChildren; a getData's is its fetch): the version
+   *  it returned, -1 for no node or none stated (MessageDoors#storeRead). */
+  private void causynthStoreRead(String path, int version, String op) {
+    MessageDoors.storeRead(CAUSYNTH_ZK, path + "@" + version, op, this);
   }
 
   /**
@@ -1062,6 +1075,7 @@ public class SolrZkClient implements Closeable {
           zkConnManagerCallbackExecutor.submit(() -> watcher.process(event));
         } else {
           zkCallbackExecutor.submit(() -> MessageDoors.notified(causynthKind(watcher),
+              CAUSYNTH_ZK, event.getPath(), String.valueOf(event.getType()),
               () -> watcher.process(event)));
         }
       } catch (RejectedExecutionException e) {
