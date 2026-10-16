@@ -19,9 +19,11 @@ package org.apache.solr.client.solrj.impl;
 
 import java.io.IOException;
 import java.lang.invoke.MethodHandles;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -38,6 +40,7 @@ import org.apache.solr.common.cloud.DocCollection;
 import org.apache.solr.common.cloud.PerReplicaStates;
 import org.apache.solr.common.cloud.ZkStateReader;
 import org.apache.solr.common.params.ModifiableSolrParams;
+import org.apache.solr.common.util.CausynthRandom;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.common.util.SimpleOrderedMap;
 import org.apache.solr.common.util.Utils;
@@ -140,7 +143,7 @@ public abstract class BaseHttpClusterStateProvider implements ClusterStateProvid
     } else {
       znodeVersion = -1;
     }
-    Set<String> liveNodes = new HashSet<>((List<String>) (cluster.get("live_nodes")));
+    Set<String> liveNodes = liveNodesOf((List<String>) (cluster.get("live_nodes")));
     this.liveNodes = liveNodes;
     liveNodesTimestamp = System.nanoTime();
     ClusterState cs = new ClusterState(liveNodes, new HashMap<>(), -1);
@@ -212,7 +215,21 @@ public abstract class BaseHttpClusterStateProvider implements ClusterStateProvid
     QueryRequest request = new QueryRequest(params);
     request.setPath("/admin/collections");
     NamedList cluster = (SimpleOrderedMap) client.request(request).get("cluster");
-    return (Set<String>) new HashSet((List<String>)(cluster.get("live_nodes")));
+    return liveNodesOf((List<String>) (cluster.get("live_nodes")));
+  }
+
+  /**
+   * GraphChecker: the live nodes a response named, in a HashSet's order as stock,
+   * and in an automatic cluster in its nodes' order (CausynthRandom#order): the
+   * node a lookup asks first, and so the node the client's cluster-state fetches
+   * stay on, was the first of the run's host:port names by hash, another node in
+   * each run (solr-adhoc-10's seed replays: node2, node1 or node0 by their ports,
+   * and the routed updates followed).
+   */
+  private static Set<String> liveNodesOf(List<String> named) {
+    List<String> nodes = new ArrayList<>(new HashSet<>(named));
+    CausynthRandom.order(nodes, node -> node);
+    return new LinkedHashSet<>(nodes);
   }
 
   @Override

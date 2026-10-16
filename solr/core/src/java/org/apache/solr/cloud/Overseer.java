@@ -368,6 +368,16 @@ public class Overseer implements SolrCloseable {
         clusterState = zkStateWriter.enqueueUpdate(clusterState, zkWriteCommands, callback);
         if (!enableBatching)  {
           clusterState = zkStateWriter.writePendingUpdates();
+          // GraphChecker: unbatched (an automatic cluster), the message's queue item
+          // is removed after its write here, in its own turn: only enqueueUpdate's
+          // flush called back, and whether it flushed was ZkStateWriter#maybeFlushAfter's
+          // nanoTime, so the removal ran in this turn or after the batch, in the
+          // queue loop's wake (solr-adhoc-10: 50 of the recording's in its wakes,
+          // 5 of a replay's).  A second call removes nothing (the callback clears
+          // what it removed).
+          if (callback != null) {
+            callback.onWrite();
+          }
         }
       }
       return clusterState;
