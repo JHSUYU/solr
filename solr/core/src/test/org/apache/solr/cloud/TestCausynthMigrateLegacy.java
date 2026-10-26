@@ -22,7 +22,9 @@ import org.apache.lucene.util.LuceneTestCase;
 import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.embedded.JettySolrRunner;
 import org.apache.solr.client.solrj.impl.CloudSolrClient;
+import org.apache.solr.client.solrj.impl.HttpSolrClient;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
+import org.apache.solr.client.solrj.request.CoreAdminRequest;
 import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.common.cloud.ZkStateReader;
 import org.apache.solr.common.util.TimeSource;
@@ -37,7 +39,8 @@ import org.junit.Test;
  * <p>The cluster property is set first and every node is let see it, so
  * every read of it inside the test sees legacy mode.  The source collection
  * lives alone on the first node, the target alone on the second (the shape of
- * TestCausynthMigrateBufferLeak); two documents of route key a! are indexed
+ * TestCausynthMigrateBufferLeak), each made the legacy way -- its one core
+ * created by a core-admin CREATE that names its coreNodeName; two documents of route key a! are indexed
  * into the source and migrated to the target.  MIGRATE splits the key into a
  * temporary collection on the source leader's node and creates that
  * collection's second replica on the target leader's node with a core-admin
@@ -71,10 +74,8 @@ public class TestCausynthMigrateLegacy extends SolrCloudTestCase {
             () -> "true".equals(reader.getClusterProperties().get(ZkStateReader.LEGACY_CLOUD)));
       }
 
-      CollectionAdminRequest.createCollection(SOURCE, "conf", 1, 1)
-          .setCreateNodeSet(cluster.getJettySolrRunner(0).getNodeName()).process(client);
-      CollectionAdminRequest.createCollection(TARGET, "conf", 1, 1)
-          .setCreateNodeSet(cluster.getJettySolrRunner(1).getNodeName()).process(client);
+      createCore(cluster.getJettySolrRunner(0), SOURCE);
+      createCore(cluster.getJettySolrRunner(1), TARGET);
       cluster.waitForActiveCollection(SOURCE, 1, 1);
       cluster.waitForActiveCollection(TARGET, 1, 1);
 
@@ -89,6 +90,20 @@ public class TestCausynthMigrateLegacy extends SolrCloudTestCase {
           client.query(TARGET, new SolrQuery("*:*")).getResults().getNumFound());
     } finally {
       CollectionAdminRequest.setClusterProperty(ZkStateReader.LEGACY_CLOUD, null).process(client);
+    }
+  }
+
+  /** A 1x1 collection made the legacy way: its one core, on the node, by a core-admin CREATE naming its coreNodeName. */
+  private static void createCore(JettySolrRunner jetty, String collection) throws Exception {
+    CoreAdminRequest.Create create = new CoreAdminRequest.Create();
+    create.setCoreName(collection + "_shard1_replica_n1");
+    create.setCollection(collection);
+    create.setCollectionConfigName("conf");
+    create.setNumShards(1);
+    create.setShardId("shard1");
+    create.setCoreNodeName("core_node1");
+    try (HttpSolrClient node = getHttpSolrClient(jetty.getBaseUrl().toString())) {
+      create.process(node);
     }
   }
 }
