@@ -16,14 +16,11 @@
  */
 package org.apache.solr.cloud;
 
-import java.util.concurrent.TimeUnit;
-
 import org.apache.lucene.util.LuceneTestCase;
 import org.apache.solr.client.solrj.embedded.JettySolrRunner;
 import org.apache.solr.client.solrj.impl.HttpSolrClient;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
 import org.apache.solr.common.cloud.Replica;
-import org.apache.solr.common.cloud.ZkStateReader;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -34,16 +31,20 @@ import org.junit.Test;
  * <p>Two nodes: the collection (1x1) lives on the second; every collection
  * request goes to the first.  The first node's CollectionsHandler waits for
  * the new collection to be active (a state watch it drops once the replica is
- * active).  The second node then stops, so the shard's leader is DOWN, and
- * the first node is let see the second gone (one more watch of the
- * collection, dropped at once: its registration reads the state as it stands
- * now).  FORCELEADER on the first node finds the leader DOWN, so it is
- * applicable; no live replica can take over, and after its wait it answers
- * without a leader.</p>
+ * active).  The second node then stops, so the shard's leader is DOWN.
+ * FORCELEADER on the first node finds the leader DOWN, so it is applicable;
+ * no live replica can take over, and after its wait it answers without a
+ * leader.</p>
  *
- * <p>Had the first node's view of the collection stayed at what its first
- * watch last saw -- the replica ACTIVE and leading -- FORCELEADER would refuse
- * ("The shard already has an active leader").</p>
+ * <p>The first node's watch is satisfied at its registration (the replica is
+ * already active when the CREATE returns), and a registration refresh
+ * publishes twice (per-replica states, then the state): the second publish,
+ * of a collection no longer watched, drops the entry, so the first node reads
+ * the collection lazily.  Had the replica gone active only after the first
+ * node registered its watch, the watch would end on that event's single
+ * publication and -- with SOLR-9440's bug -- the first node would keep the
+ * replica ACTIVE and leading for good: FORCELEADER would refuse ("The shard
+ * already has an active leader").</p>
  */
 @LuceneTestCase.Slow
 public class TestCausynthForceLeaderStaleView extends SolrCloudTestCase {
@@ -61,7 +62,6 @@ public class TestCausynthForceLeaderStaleView extends SolrCloudTestCase {
     JettySolrRunner first = cluster.getJettySolrRunner(0);
     JettySolrRunner second = cluster.getJettySolrRunner(1);
     String secondNode = second.getNodeName();
-    ZkStateReader firstReader = first.getCoreContainer().getZkController().getZkStateReader();
     try (HttpSolrClient admin = getHttpSolrClient(first.getBaseUrl().toString())) {
       CollectionAdminRequest.createCollection(COLLECTION, "conf", 1, 1)
           .setCreateNodeSet(secondNode).process(admin);
@@ -72,9 +72,6 @@ public class TestCausynthForceLeaderStaleView extends SolrCloudTestCase {
       waitForState("the replica on the stopped node is not DOWN", COLLECTION,
           (liveNodes, collection) -> collection != null && collection.getReplicas().stream()
               .allMatch(replica -> replica.getState() == Replica.State.DOWN));
-
-      firstReader.waitForState(COLLECTION, 60, TimeUnit.SECONDS,
-          (liveNodes, collection) -> !liveNodes.contains(secondNode));
 
       CollectionAdminRequest.forceLeaderElection(COLLECTION, "shard1").process(admin);
     }
