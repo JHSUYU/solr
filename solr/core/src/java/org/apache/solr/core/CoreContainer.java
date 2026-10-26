@@ -67,7 +67,7 @@ import org.apache.solr.client.solrj.impl.SolrHttpClientContextBuilder.Credential
 import org.apache.solr.client.solrj.io.SolrClientCache;
 import org.apache.solr.client.solrj.util.SolrIdentifierValidator;
 import org.apache.solr.cloud.CloudDescriptor;
-import org.apache.solr.cloud.Overseer;
+import org.apache.solr.cloud.CausynthLegacyCloud;
 import org.apache.solr.cloud.OverseerTaskQueue;
 import org.apache.solr.cloud.ZkController;
 import org.apache.solr.cloud.autoscaling.AutoScalingHandler;
@@ -1325,7 +1325,7 @@ public class CoreContainer {
       boolean preExisitingZkEntry = false;
       try {
         if (getZkController() != null) {
-        if (!Overseer.isLegacy(getZkController().getZkStateReader())) {
+        if (!CausynthLegacyCloud.isLegacy(getZkController().getZkStateReader())) { // GraphChecker: legacyCloud through one field-backed value
           if (cd.getCloudDescriptor().getCoreNodeName() == null) {
             throw new @edu.uva.liftlab.graphchecker.annotation.CausynthExceptionTarget("solr-adhoc-19") SolrException(ErrorCode.SERVER_ERROR, "non legacy mode coreNodeName missing " + parameters.toString());
 

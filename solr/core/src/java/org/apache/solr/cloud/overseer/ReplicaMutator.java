@@ -33,6 +33,7 @@ import org.apache.solr.client.solrj.cloud.DistribStateManager;
 import org.apache.solr.client.solrj.cloud.SolrCloudManager;
 import org.apache.solr.client.solrj.cloud.autoscaling.VersionedData;
 import org.apache.solr.cloud.CloudUtil;
+import org.apache.solr.cloud.CausynthLegacyCloud;
 import org.apache.solr.cloud.Overseer;
 import org.apache.solr.cloud.api.collections.Assign;
 import org.apache.solr.cloud.api.collections.OverseerCollectionMessageHandler;
@@ -209,7 +210,7 @@ public class ReplicaMutator {
   }
 
   public ZkWriteCommand setState(ClusterState clusterState, ZkNodeProps message) {
-    if (Overseer.isLegacy(cloudManager.getClusterStateProvider())) {
+    if (CausynthLegacyCloud.isLegacy(cloudManager.getClusterStateProvider())) { // GraphChecker: legacyCloud through one field-backed value
       return updateState(clusterState, message);
     } else {
       return updateStateNew(clusterState, message);

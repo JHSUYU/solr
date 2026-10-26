@@ -47,6 +47,7 @@ import org.apache.solr.client.solrj.request.AbstractUpdateRequest;
 import org.apache.solr.client.solrj.request.UpdateRequest;
 import org.apache.solr.client.solrj.response.UpdateResponse;
 import org.apache.solr.cloud.LockTree;
+import org.apache.solr.cloud.CausynthLegacyCloud;
 import org.apache.solr.cloud.Overseer;
 import org.apache.solr.cloud.OverseerMessageHandler;
 import org.apache.solr.cloud.OverseerNodePrioritizer;
@@ -642,7 +643,7 @@ public class OverseerCollectionMessageHandler implements OverseerMessageHandler,
     if(configName != null) {
       validateConfigOrThrowSolrException(configName);
 
-      boolean isLegacyCloud =  Overseer.isLegacy(zkStateReader);
+      boolean isLegacyCloud =  CausynthLegacyCloud.isLegacy(zkStateReader); // GraphChecker: legacyCloud through one field-backed value
       createConfNode(cloudManager.getDistribStateManager(), configName, collectionName, isLegacyCloud);
       reloadCollection(null, new ZkNodeProps(NAME, collectionName), results);
     }

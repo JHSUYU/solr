@@ -1264,7 +1264,7 @@ public class ZkController implements Closeable {
 
       // check replica's existence in clusterstate first
       try {
-        zkStateReader.waitForState(collection, Overseer.isLegacy(zkStateReader) ? 60000 : 100,
+        zkStateReader.waitForState(collection, CausynthLegacyCloud.isLegacy(zkStateReader) ? 60000 : 100, // GraphChecker: legacyCloud through one field-backed value
             TimeUnit.MILLISECONDS, (collectionState) -> getReplicaOrNull(collectionState, shardId, coreZkNodeName) != null);
       } catch (TimeoutException e) {
         throw new SolrException(ErrorCode.SERVER_ERROR, "Error registering SolrCore, timeout waiting for replica present in clusterstate");
@@ -1641,7 +1641,7 @@ public class ZkController implements Closeable {
       props.put(ZkStateReader.SHARD_ID_PROP, cd.getCloudDescriptor().getShardId());
       props.put(ZkStateReader.COLLECTION_PROP, collection);
       props.put(ZkStateReader.REPLICA_TYPE, cd.getCloudDescriptor().getReplicaType().toString());
-      if (!Overseer.isLegacy(zkStateReader)) {
+      if (!CausynthLegacyCloud.isLegacy(zkStateReader)) { // GraphChecker: legacyCloud through one field-backed value
         props.put(ZkStateReader.FORCE_SET_STATE_PROP, "false");
       }
       if (numShards != null) {
@@ -1925,7 +1925,7 @@ public class ZkController implements Closeable {
    * @return Should publish the replica as down on startup
    */
   private boolean isPublishAsDownOnStartup(CloudDescriptor cloudDesc) {
-    if (!Overseer.isLegacy(zkStateReader)) {
+    if (!CausynthLegacyCloud.isLegacy(zkStateReader)) { // GraphChecker: legacyCloud through one field-backed value
       Replica replica = zkStateReader.getClusterState().getCollection(cloudDesc.getCollectionName())
           .getSlice(cloudDesc.getShardId())
           .getReplica(cloudDesc.getCoreNodeName());
@@ -1937,7 +1937,7 @@ public class ZkController implements Closeable {
   }
 
   private void checkStateInZk(CoreDescriptor cd) throws InterruptedException, NotInClusterStateException {
-    if (!Overseer.isLegacy(zkStateReader)) {
+    if (!CausynthLegacyCloud.isLegacy(zkStateReader)) { // GraphChecker: legacyCloud through one field-backed value
       CloudDescriptor cloudDesc = cd.getCloudDescriptor();
       String nodeName = cloudDesc.getCoreNodeName();
       if (nodeName == null) {
