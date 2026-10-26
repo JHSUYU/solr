@@ -51,6 +51,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.solr.client.solrj.cloud.SolrCloudManager;
 import org.apache.solr.client.solrj.cloud.autoscaling.PolicyHelper;
 import org.apache.solr.cloud.ActiveReplicaWatcher;
+import org.apache.solr.cloud.CausynthLegacyCloud;
 import org.apache.solr.cloud.Overseer;
 import org.apache.solr.cloud.api.collections.OverseerCollectionMessageHandler.ShardRequestTracker;
 import org.apache.solr.common.SolrCloseableLatch;
@@ -243,7 +244,7 @@ public class AddReplicaCmd implements OverseerCollectionMessageHandler.Cmd {
     ModifiableSolrParams params = new ModifiableSolrParams();
 
     ZkStateReader zkStateReader = ocmh.zkStateReader;
-    if (!Overseer.isLegacy(zkStateReader)) {
+    if (!CausynthLegacyCloud.isLegacy(zkStateReader)) { // GraphChecker: legacyCloud through one field-backed value
       if (!skipCreateReplicaInClusterState) {
         ZkNodeProps props = new ZkNodeProps(
             Overseer.QUEUE_OPERATION, ADDREPLICA.toLower(),
