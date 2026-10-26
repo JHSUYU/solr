@@ -99,6 +99,19 @@ public class Overseer implements SolrCloseable {
 
   public static final int NUM_RESPONSES_TO_STORE = 10000;
   public static final String OVERSEER_ELECT = "/overseer_elect";
+
+  /**
+   * GraphChecker: a workaround for solr-buggy-9440's workload, test-only.
+   * Milliseconds the state-update loop waits, after a state message's
+   * ZooKeeper write failed, before it refreshes and re-processes that message
+   * (the main queue loop's exception path). So natively the messages queued
+   * meanwhile are written after that wait, as a slow Overseer would write
+   * them. It only fixes a native order the failure leaves open; it adds no
+   * happens-before and never decides the throw. 0 (no wait) unless a test
+   * sets it; with no failed write nothing waits.
+   */
+  public static volatile long failedStateWriteRetryDelayMs = 0;
+
   private final CopyOnWriteArrayList<Message> unprocessedMessages = new CopyOnWriteArrayList<>();
 
   private SolrMetricsContext solrMetricsContext;
@@ -322,6 +335,16 @@ public class Overseer implements SolrCloseable {
           } catch (Exception e) {
             log.error("Exception in Overseer main queue loop", e);
             refreshClusterState = true; // it might have been a bad version error
+            // GraphChecker: a test-only wait before the retry of a failed
+            // ZooKeeper write (see failedStateWriteRetryDelayMs).
+            if (e instanceof KeeperException && failedStateWriteRetryDelayMs > 0) {
+              try {
+                Thread.sleep(failedStateWriteRetryDelayMs);
+              } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                return;
+              }
+            }
           }
         }
       } finally {
