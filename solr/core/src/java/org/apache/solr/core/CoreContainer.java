@@ -1327,7 +1327,7 @@ public class CoreContainer {
         if (getZkController() != null) {
         if (!Overseer.isLegacy(getZkController().getZkStateReader())) {
           if (cd.getCloudDescriptor().getCoreNodeName() == null) {
-            throw new @edu.uva.liftlab.graphchecker.annotation.CausynthExceptionTarget("solr-adhoc-19") SolrException(ErrorCode.SERVER_ERROR, "non legacy mode coreNodeName missing " + parameters.toString());
+            throw new @edu.uva.liftlab.graphchecker.annotation.CausynthExceptionTarget("solr-adhoc-19,solr-buggy-6101") SolrException(ErrorCode.SERVER_ERROR, "non legacy mode coreNodeName missing " + parameters.toString());
 
           }
           }
