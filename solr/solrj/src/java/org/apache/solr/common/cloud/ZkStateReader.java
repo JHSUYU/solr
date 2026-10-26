@@ -2081,24 +2081,14 @@ public class ZkStateReader implements SolrCloseable {
    * @see #registerDocCollectionWatcher
    */
   public void removeDocCollectionWatcher(String collection, DocCollectionWatcher watcher) {
-    AtomicBoolean reconstructState = new AtomicBoolean(false);
     collectionWatches.compute(collection, (k, v) -> {
       if (v == null)
         return null;
       v.stateWatchers.remove(watcher);
-      if (v.canBeRemoved()) {
-        watchedCollectionStates.remove(collection);
-        lazyCollectionStates.put(collection, new LazyCollectionRef(collection));
-        reconstructState.set(true);
+      if (v.canBeRemoved())
         return null;
-      }
       return v;
     });
-    if (reconstructState.get()) {
-      synchronized (getUpdateLock()) {
-        constructState(Collections.emptySet());
-      }
-    }
   }
 
   /* package-private for testing */
