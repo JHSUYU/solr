@@ -294,6 +294,7 @@ public class SplitShardCmd implements OverseerCollectionMessageHandler.Cmd {
       String nodeName = parentShardLeader.getNodeName();
 
       t = timings.sub("createSubSlicesAndLeadersInState");
+      final ShardRequestTracker subShardLeaderTracker = ocmh.asyncRequestTracker(asyncId);
       for (int i = 0; i < subRanges.size(); i++) {
         String subSlice = subSlices.get(i);
         String subShardName = subShardNames.get(i);
@@ -316,34 +317,22 @@ public class SplitShardCmd implements OverseerCollectionMessageHandler.Cmd {
         // wait until we are able to see the new shard in cluster state and refresh the local view of the cluster state
         clusterState = ocmh.waitForNewShard(collectionName, subSlice);
 
-        log.debug("Adding first replica {} as part of slice {} of collection {} on {}"
+        log.debug("Creating shard {} as part of slice {} of collection {} on {}"
             , subShardName, subSlice, collectionName, nodeName);
-        propMap = new HashMap<>();
-        propMap.put(Overseer.QUEUE_OPERATION, ADDREPLICA.toLower());
-        propMap.put(COLLECTION_PROP, collectionName);
-        propMap.put(SHARD_ID_PROP, subSlice);
-        propMap.put(REPLICA_TYPE, firstNrtReplica ? Replica.Type.NRT.toString() : Replica.Type.TLOG.toString());
-        propMap.put("node", nodeName);
-        propMap.put(CoreAdminParams.NAME, subShardName);
-        propMap.put(CommonAdminParams.WAIT_FOR_FINAL_STATE, Boolean.toString(waitForFinalState));
-        // copy over property params:
-        for (String key : message.keySet()) {
-          if (key.startsWith(OverseerCollectionMessageHandler.COLL_PROP_PREFIX)) {
-            propMap.put(key, message.getStr(key));
-          }
-        }
-        // add async param
-        if (asyncId != null) {
-          propMap.put(ASYNC, asyncId);
-        }
-        ocmh.addReplica(clusterState, new ZkNodeProps(propMap), results, null);
+        ModifiableSolrParams params = new ModifiableSolrParams();
+        params.set(CoreAdminParams.ACTION, CoreAdminParams.CoreAdminAction.CREATE.toString());
+        params.set(CoreAdminParams.NAME, subShardName);
+        params.set(CoreAdminParams.COLLECTION, collectionName);
+        params.set(CoreAdminParams.SHARD, subSlice);
+        params.set(CoreAdminParams.REPLICA_TYPE, firstNrtReplica ? Replica.Type.NRT.toString() : Replica.Type.TLOG.toString());
+        ocmh.addPropertyParams(message, params);
+        subShardLeaderTracker.sendShardRequest(nodeName, params, shardHandler);
       }
 
 
       {
-        final ShardRequestTracker syncRequestTracker = ocmh.syncRequestTracker();
         String msgOnError = "SPLITSHARD failed to create subshard leaders";
-        syncRequestTracker.processResponses(results, shardHandler, true, msgOnError);
+        subShardLeaderTracker.processResponses(results, shardHandler, true, msgOnError);
         handleFailureOnAsyncRequest(results, msgOnError);
       }
       t.stop();
