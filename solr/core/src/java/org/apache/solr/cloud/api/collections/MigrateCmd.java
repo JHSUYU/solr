@@ -19,7 +19,6 @@ package org.apache.solr.cloud.api.collections;
 
 import java.lang.invoke.MethodHandles;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -55,7 +54,6 @@ import static org.apache.solr.common.cloud.ZkStateReader.COLLECTION_PROP;
 import static org.apache.solr.common.cloud.ZkStateReader.NRT_REPLICAS;
 import static org.apache.solr.common.cloud.ZkStateReader.SHARD_ID_PROP;
 import static org.apache.solr.common.params.CollectionAdminParams.FOLLOW_ALIASES;
-import static org.apache.solr.common.params.CollectionParams.CollectionAction.ADDREPLICA;
 import static org.apache.solr.common.params.CollectionParams.CollectionAction.CREATE;
 import static org.apache.solr.common.params.CollectionParams.CollectionAction.DELETE;
 import static org.apache.solr.common.params.CommonAdminParams.ASYNC;
@@ -297,27 +295,16 @@ public class MigrateCmd implements OverseerCollectionMessageHandler.Cmd {
     }
     String tempCollectionReplica2 = Assign.buildSolrCoreName(ocmh.overseer.getSolrCloudManager().getDistribStateManager(),
         zkStateReader.getClusterState().getCollection(tempSourceCollectionName), tempSourceSlice.getName(), Replica.Type.NRT);
-    props = new HashMap<>();
-    props.put(Overseer.QUEUE_OPERATION, ADDREPLICA.toLower());
-    props.put(COLLECTION_PROP, tempSourceCollectionName);
-    props.put(SHARD_ID_PROP, tempSourceSlice.getName());
-    props.put("node", targetLeader.getNodeName());
-    props.put(CoreAdminParams.NAME, tempCollectionReplica2);
-    // copy over property params:
-    for (String key : message.keySet()) {
-      if (key.startsWith(OverseerCollectionMessageHandler.COLL_PROP_PREFIX)) {
-        props.put(key, message.getStr(key));
-      }
-    }
-    // add async param
-    if (asyncId != null) {
-      props.put(ASYNC, asyncId);
-    }
-    ((AddReplicaCmd)ocmh.commandMap.get(ADDREPLICA)).addReplica(clusterState, new ZkNodeProps(props), results, null);
+    params = new ModifiableSolrParams();
+    params.set(CoreAdminParams.ACTION, CoreAdminParams.CoreAdminAction.CREATE.toString());
+    params.set(CoreAdminParams.NAME, tempCollectionReplica2);
+    params.set(CoreAdminParams.COLLECTION, tempSourceCollectionName);
+    params.set(CoreAdminParams.SHARD, tempSourceSlice.getName());
 
     {
-      final ShardRequestTracker syncRequestTracker = ocmh.syncRequestTracker();
-      syncRequestTracker.processResponses(results, shardHandler, true, "MIGRATE failed to create replica of " +
+      final ShardRequestTracker shardRequestTracker = ocmh.asyncRequestTracker(asyncId);
+      shardRequestTracker.sendShardRequest(targetLeader.getNodeName(), params, shardHandler);
+      shardRequestTracker.processResponses(results, shardHandler, true, "MIGRATE failed to create replica of " +
         "temporary collection in target leader node.");
     }
     coreNodeName = ocmh.waitForCoreNodeName(tempSourceCollectionName,
