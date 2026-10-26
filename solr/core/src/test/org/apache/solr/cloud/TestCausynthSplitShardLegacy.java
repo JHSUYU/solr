@@ -22,9 +22,7 @@ import org.apache.lucene.util.LuceneTestCase;
 import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.embedded.JettySolrRunner;
 import org.apache.solr.client.solrj.impl.CloudSolrClient;
-import org.apache.solr.client.solrj.impl.HttpSolrClient;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
-import org.apache.solr.client.solrj.request.CoreAdminRequest;
 import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.common.cloud.ZkStateReader;
 import org.apache.solr.common.util.TimeSource;
@@ -38,14 +36,17 @@ import org.junit.Test;
  *
  * <p>The cluster property is set first and every node is let see it, so
  * every read of it inside the test sees legacy mode.  Then a 1x1 collection
- * is made the legacy way -- its one core created by a core-admin CREATE that
- * names its coreNodeName, so the node registers it into the cluster state --
- * four documents are indexed, and shard1 is split into two sub-shards on the
- * parent leader's node.  In legacy mode a core-admin CREATE
+ * is created, four documents are indexed, and shard1 is split into two
+ * sub-shards on the parent leader's node.  In legacy mode a core-admin CREATE
  * without a coreNodeName is valid (the node asks the Overseer to name the new
  * replica), so the split succeeds.  Had the node read legacyCloud=false at
  * the sub-shard core's creation, CoreContainer.create would refuse that
  * CREATE ("non legacy mode coreNodeName missing").</p>
+ *
+ * <p>The collection is made through the Collections API: in the bug's own
+ * world, where every read of legacyCloud (node and Overseer, all through
+ * CausynthLegacyCloud) says non-legacy, CreateCollectionCmd names the core's
+ * coreNodeName, so the first CREATE the node refuses is the split's.</p>
  */
 @LuceneTestCase.Slow
 public class TestCausynthSplitShardLegacy extends SolrCloudTestCase {
@@ -70,16 +71,7 @@ public class TestCausynthSplitShardLegacy extends SolrCloudTestCase {
             () -> "true".equals(reader.getClusterProperties().get(ZkStateReader.LEGACY_CLOUD)));
       }
 
-      CoreAdminRequest.Create create = new CoreAdminRequest.Create();
-      create.setCoreName(COLLECTION + "_shard1_replica_n1");
-      create.setCollection(COLLECTION);
-      create.setCollectionConfigName("conf");
-      create.setNumShards(1);
-      create.setShardId("shard1");
-      create.setCoreNodeName("core_node1");
-      try (HttpSolrClient node = getHttpSolrClient(cluster.getJettySolrRunner(0).getBaseUrl().toString())) {
-        create.process(node);
-      }
+      CollectionAdminRequest.createCollection(COLLECTION, "conf", 1, 1).process(client);
       cluster.waitForActiveCollection(COLLECTION, 1, 1);
       for (int i = 0; i < 4; i++) {
         client.add(COLLECTION, new SolrInputDocument("id", "doc" + i));
