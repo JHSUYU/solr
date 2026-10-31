@@ -38,7 +38,6 @@ import java.io.IOException;
 import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
@@ -262,8 +261,11 @@ public class AddReplicaCmd implements OverseerCollectionMessageHandler.Cmd {
           throw new SolrException(SolrException.ErrorCode.SERVER_ERROR, "Exception updating Overseer state queue", e);
         }
       }
-      params.set(CoreAdminParams.CORE_NODE_NAME,
-          ocmh.waitToSeeReplicasInState(collectionName, Collections.singletonList(createReplica.coreName)).get(createReplica.coreName).getName());
+      // don't hold the Overseer on a slow state update: the node finds the replica's name in the state when it creates
+      // the core (CoreContainer#create)
+      if (createReplica.coreNodeName != null) {
+        params.set(CoreAdminParams.CORE_NODE_NAME, createReplica.coreNodeName);
+      }
     }
 
     String configName = zkStateReader.readConfigName(collectionName);

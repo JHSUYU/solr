@@ -1326,7 +1326,7 @@ public class CoreContainer {
       try {
         if (getZkController() != null) {
         if (!Overseer.isLegacy(getZkController().getZkStateReader())) {
-          if (cd.getCloudDescriptor().getCoreNodeName() == null) {
+          if (awaitCoreNodeName(cd) == null) {
             throw new @edu.uva.liftlab.graphchecker.annotation.CausynthExceptionTarget("solr-adhoc-19") SolrException(ErrorCode.SERVER_ERROR, "non legacy mode coreNodeName missing " + parameters.toString());
 
           }
@@ -2279,6 +2279,31 @@ public class CoreContainer {
    */
   public void runAsync(Runnable r) {
     coreContainerAsyncTaskExecutor.submit(r);
+  }
+
+  /**
+   * Under non-legacy the Overseer puts a new replica into the cluster state before it asks the node to create its core;
+   * the core's CREATE may still come before the node's view shows it. Look for the replica of this core on this node
+   * for up to 5 s, then go on with what was found.
+   */
+  private String awaitCoreNodeName(CoreDescriptor cd) throws InterruptedException {
+    CloudDescriptor cloud = cd.getCloudDescriptor();
+    long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(5);
+    while (cloud.getCoreNodeName() == null && System.nanoTime() < deadline) {
+      DocCollection collection = getZkController().getZkStateReader().getClusterState()
+          .getCollectionOrNull(cloud.getCollectionName());
+      if (collection != null) {
+        for (Replica replica : collection.getReplicas()) {
+          if (cd.getName().equals(replica.getCoreName()) && getZkController().getNodeName().equals(replica.getNodeName())) {
+            cloud.setCoreNodeName(replica.getName());
+          }
+        }
+      }
+      if (cloud.getCoreNodeName() == null) {
+        Thread.sleep(100);
+      }
+    }
+    return cloud.getCoreNodeName();
   }
 }
 
