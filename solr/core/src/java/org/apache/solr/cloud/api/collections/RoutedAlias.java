@@ -347,7 +347,7 @@ public abstract class RoutedAlias {
     List<String> observedCols = zkController.zkStateReader.aliasesManager.getAliases().getCollectionAliasListMap().get(getAliasName());
     if (!observedCols.contains(targetCollectionDesc.creationCollection)) {
       // if collection creation did not occur we've failed. Bail out.
-      throw new @edu.uva.liftlab.graphchecker.annotation.CausynthExceptionTarget("solr-adhoc-13") SolrException(SERVER_ERROR, "After we attempted to create " + targetCollectionDesc.creationCollection + " it did not exist");
+      throw new @edu.uva.liftlab.graphchecker.annotation.CausynthExceptionTarget("solr-adhoc-13,solr-inj-02,solr-inj-02-control") SolrException(SERVER_ERROR, "After we attempted to create " + targetCollectionDesc.creationCollection + " it did not exist");
     }
     // then recalculate the candiate, which may result in continuation or termination the loop calling this method
     targetCollectionDesc = findCandidateGivenValue(cmd);
