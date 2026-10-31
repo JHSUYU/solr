@@ -549,6 +549,10 @@ public class SplitShardCmd implements OverseerCollectionMessageHandler.Cmd {
       // always gets a chance to execute. See SOLR-7673
 
       if (repFactor == 1) {
+        // stop routing to the parent before the final commit, so no document reaches it after the commit
+        ocmh.overseer.offerStateUpdate(Utils.toJSON(new ZkNodeProps(Overseer.QUEUE_OPERATION,
+            OverseerAction.UPDATESHARDSTATE.toLower(), slice.get(), Slice.State.INACTIVE.toString(),
+            ZkStateReader.COLLECTION_PROP, collectionName)));
         // A commit is needed so that documents are visible when the sub-shard replicas come up
         // (Note: This commit used to be after the state switch, but was brought here before the state switch
         //  as per SOLR-13945 so that sub shards don't come up empty, momentarily, after being marked active) 
@@ -559,7 +563,6 @@ public class SplitShardCmd implements OverseerCollectionMessageHandler.Cmd {
         log.info("Replication factor is 1 so switching shard states");
         Map<String, Object> propMap = new HashMap<>();
         propMap.put(Overseer.QUEUE_OPERATION, OverseerAction.UPDATESHARDSTATE.toLower());
-        propMap.put(slice.get(), Slice.State.INACTIVE.toString());
         for (String subSlice : subSlices) {
           propMap.put(subSlice, Slice.State.ACTIVE.toString());
         }
