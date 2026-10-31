@@ -397,10 +397,6 @@ public abstract class RoutedAlias {
       // we don't care about the response.  It's possible no collection was created because
       //  of a race and that's okay... we'll ultimately retry any way.
 
-      // Ensure our view of the aliases has updated. If we didn't do this, our zkStateReader might
-      //  not yet know about the new alias (thus won't see the newly added collection to it), and we might think
-      //  we failed.
-      coreContainer.getZkController().getZkStateReader().aliasesManager.update();
       updateParsedCollectionAliases(coreContainer.getZkController().getZkStateReader(),false);
     } catch (RuntimeException e) {
       throw e;
