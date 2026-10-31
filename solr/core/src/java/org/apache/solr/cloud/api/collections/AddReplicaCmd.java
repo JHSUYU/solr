@@ -244,6 +244,7 @@ public class AddReplicaCmd implements OverseerCollectionMessageHandler.Cmd {
 
     ZkStateReader zkStateReader = ocmh.zkStateReader;
     if (!Overseer.isLegacy(zkStateReader)) {
+      boolean inState = true;
       if (!skipCreateReplicaInClusterState) {
         ZkNodeProps props = new ZkNodeProps(
             Overseer.QUEUE_OPERATION, ADDREPLICA.toLower(),
@@ -259,11 +260,15 @@ public class AddReplicaCmd implements OverseerCollectionMessageHandler.Cmd {
         try {
           ocmh.overseer.offerStateUpdate(Utils.toJSON(props));
         } catch (Exception e) {
-          throw new SolrException(SolrException.ErrorCode.SERVER_ERROR, "Exception updating Overseer state queue", e);
+          // the core registers itself when it comes up, as in legacy mode
+          log.warn("Could not queue ADDREPLICA of {}; the core will register itself", createReplica.coreName, e);
+          inState = false;
         }
       }
-      params.set(CoreAdminParams.CORE_NODE_NAME,
-          ocmh.waitToSeeReplicasInState(collectionName, Collections.singletonList(createReplica.coreName)).get(createReplica.coreName).getName());
+      if (inState) {
+        params.set(CoreAdminParams.CORE_NODE_NAME,
+            ocmh.waitToSeeReplicasInState(collectionName, Collections.singletonList(createReplica.coreName)).get(createReplica.coreName).getName());
+      }
     }
 
     String configName = zkStateReader.readConfigName(collectionName);
