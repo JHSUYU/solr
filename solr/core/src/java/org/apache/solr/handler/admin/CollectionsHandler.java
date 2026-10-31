@@ -1546,7 +1546,7 @@ public class CollectionsHandler extends RequestHandlerBase implements Permission
     }
 
     try {
-      cc.getZkController().getZkStateReader().waitForState(collectionName, seconds, TimeUnit.SECONDS, (n, c) -> {
+      org.apache.solr.common.cloud.CollectionStatePredicate active = (n, c) -> {
 
         if (c == null) {
           // the collection was not created, don't wait
@@ -1583,7 +1583,18 @@ public class CollectionsHandler extends RequestHandlerBase implements Permission
           if ((replicaNotAliveCnt == 0) || (replicaNotAliveCnt <= replicaFailCount)) return true;
         }
         return false;
+      };
+      // wait on a state watcher and a latch rather than inside waitForState
+      java.util.concurrent.CountDownLatch done = new java.util.concurrent.CountDownLatch(1);
+      cc.getZkController().getZkStateReader().registerCollectionStateWatcher(collectionName, (n, c) -> {
+        if (active.matches(n, c)) {
+          done.countDown();
+        }
+        return false;
       });
+      if (!done.await(seconds, TimeUnit.SECONDS)) {
+        throw new TimeoutException();
+      }
     } catch (TimeoutException | InterruptedException e) {
       String error = "Timeout waiting for active collection " + collectionName + " with timeout=" + seconds;
       throw new NotInClusterStateException(ErrorCode.SERVER_ERROR, error);
