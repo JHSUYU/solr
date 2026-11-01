@@ -553,7 +553,17 @@ public class SplitShardCmd implements OverseerCollectionMessageHandler.Cmd {
         // (Note: This commit used to be after the state switch, but was brought here before the state switch
         //  as per SOLR-13945 so that sub shards don't come up empty, momentarily, after being marked active) 
         t = timings.sub("finalCommit");
-        ocmh.commit(results, slice.get(), parentShardLeader);
+        try {
+          ocmh.commit(results, slice.get(), parentShardLeader);
+        } catch (Exception e) {
+          // the sub-shards already hold the parent's documents: rolling back would delete them;
+          // stop routing to the parent and leave the switch to a retry
+          ocmh.overseer.offerStateUpdate(Utils.toJSON(new ZkNodeProps(Overseer.QUEUE_OPERATION,
+              OverseerAction.UPDATESHARDSTATE.toLower(), slice.get(), Slice.State.INACTIVE.toString(),
+              ZkStateReader.COLLECTION_PROP, collectionName)));
+          success = true;
+          throw e;
+        }
         t.stop();
         // switch sub shard states to 'active'
         log.info("Replication factor is 1 so switching shard states");
