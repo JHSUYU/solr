@@ -1173,6 +1173,11 @@ public abstract class BaseCloudSolrClient extends SolrClient {
 
       // Sort the leader replicas, if any, according to the request preferences    (none if !sendToLeaders)
       replicaListTransformer.transform(sortedReplicas);
+      // GraphChecker: an ordered automatic cluster tries the leaders in node order
+      // (CausynthBounds#ordered).
+      if (org.apache.solr.common.util.CausynthBounds.ordered()) {
+        CausynthRandom.order(sortedReplicas, Replica::getNodeName);
+      }
 
       // Sort the replicas, if any, according to the request preferences and append to our list
       replicaListTransformer.transform(replicas);

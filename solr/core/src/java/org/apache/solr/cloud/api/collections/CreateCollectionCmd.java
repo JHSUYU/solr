@@ -360,6 +360,11 @@ public class CreateCollectionCmd implements OverseerCollectionMessageHandler.Cmd
           ShardRequest sreq = e.getValue();
           sreq.params.set(CoreAdminParams.CORE_NODE_NAME, replicas.get(e.getKey()).getName());
           shardHandler.submit(sreq, sreq.shards[0], sreq.params);
+          // GraphChecker: an ordered automatic cluster creates the cores one after another
+          // (CausynthBounds#ordered).
+          if (org.apache.solr.common.util.CausynthBounds.ordered()) {
+            shardRequestTracker.processResponses(results, shardHandler, false, null, Collections.emptySet());
+          }
         }
       }
 

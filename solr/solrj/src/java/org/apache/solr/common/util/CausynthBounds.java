@@ -40,6 +40,18 @@ public final class CausynthBounds {
     return Boolean.getBoolean(AUTOMATIC);
   }
 
+  /**
+   * An automatic cluster a case asks to be ordered ({@code causynth.cluster.ordered}): a new
+   * collection's cores are created one after another, in replica order, so each shard's first
+   * replica is its leader in every run (created together, whichever core registered first led),
+   * and the cloud client tries the leaders in node order, so a request that names an alias
+   * enters at the same node in every run (solr-adhoc-40, rounds SL1-SL3: the node whose stale
+   * alias view rejects the update was another one in each recording).
+   */
+  public static boolean ordered() {
+    return automatic() && Boolean.getBoolean("causynth.cluster.ordered");
+  }
+
   /** A bound: the native one, or {@code NEVER_MS} in an automatic cluster. */
   public static long of(long bound, TimeUnit unit) {
     return automatic() ? unit.convert(NEVER_MS, TimeUnit.MILLISECONDS) : bound;
