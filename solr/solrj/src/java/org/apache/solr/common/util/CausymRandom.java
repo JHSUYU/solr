@@ -25,7 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
 /**
- * A choice an automatic cluster ({@link CausynthBounds#AUTOMATIC}) makes the
+ * A choice an automatic cluster ({@link CausymBounds#AUTOMATIC}) makes the
  * same in the recording and in every replay: a {@link Random} seeded by the
  * test's seed ({@code tests.seed}), as Solr seeds its own where a test runs
  * (OverseerCollectionMessageHandler, HttpSolrCall); unseeded elsewhere.  A
@@ -33,11 +33,11 @@ import java.util.function.Function;
  * recording, and the work it started stood on another anchor
  * (solr-adhoc-31, round SG2: ForceLeaderTest's FORCELEADER).
  */
-public final class CausynthRandom {
+public final class CausymRandom {
   /** Per node ({@code host:port}), the ordinal the cluster adapter numbered it by. */
   private static final Map<String, Integer> ORDINALS = new ConcurrentHashMap<>();
 
-  private CausynthRandom() {
+  private CausymRandom() {
   }
 
   /**
@@ -60,7 +60,7 @@ public final class CausynthRandom {
    * the recording, with one seeded draw).  Left as it is elsewhere.
    */
   public static <T> void order(List<T> list, Function<? super T, String> node) {
-    if (!CausynthBounds.automatic() || list.size() < 2) return;
+    if (!CausymBounds.automatic() || list.size() < 2) return;
     list.sort(Comparator.<T>comparingInt(each -> ordinalOf(node.apply(each)))
         .thenComparing(each -> String.valueOf(node.apply(each))));
   }
@@ -75,7 +75,7 @@ public final class CausynthRandom {
    * client's updates went to node2 in the replay, node3 in the recording).
    */
   public static <T> void shuffle(List<T> list, Random random, Function<? super T, String> node) {
-    if (!CausynthBounds.automatic()) {
+    if (!CausymBounds.automatic()) {
       Collections.shuffle(list, random);
       return;
     }
@@ -106,7 +106,7 @@ public final class CausynthRandom {
 
   public static Random create() {
     String seed = System.getProperty("tests.seed");
-    return CausynthBounds.automatic() && seed != null
+    return CausymBounds.automatic() && seed != null
         ? new Random(seed.hashCode()) : new Random();
   }
 }

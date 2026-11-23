@@ -50,13 +50,13 @@ import org.slf4j.LoggerFactory;
  * states, so the Overseer takes no per-replica-state path.</p>
  */
 @LuceneTestCase.Slow
-public class TestCausynthAddReplicaState extends SolrCloudTestCase {
+public class TestCausymAddReplicaState extends SolrCloudTestCase {
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
-  private static final String COLLECTION = "causynthAddReplica";
+  private static final String COLLECTION = "causymAddReplica";
   private static final int ACTIVE_POLLS = 30;
 
   static {
-    // GraphChecker: replica states in the collection's state.json, as Solr 8.11 keeps them unless a
+    // Causym: replica states in the collection's state.json, as Solr 8.11 keeps them unless a
     // collection asks for per-replica states (which the test framework picks at random).
     System.setProperty("use.perreplica", "false");
   }

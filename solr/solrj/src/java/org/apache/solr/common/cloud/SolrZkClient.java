@@ -16,7 +16,7 @@
  */
 package org.apache.solr.common.cloud;
 
-import edu.uva.liftlab.graphchecker.runtime.MessageDoors;
+import edu.uva.liftlab.causym.runtime.MessageDoors;
 
 
 import java.io.Closeable;
@@ -266,9 +266,9 @@ public class SolrZkClient implements Closeable {
 
   public void delete(final String path, final int version, boolean retryOnConnLoss)
       throws InterruptedException, KeeperException {
-    // GraphChecker: a delete moves its parent's child counter, which numbers
+    // Causym: a delete moves its parent's child counter, which numbers
     // the next sequential create there: it takes its turn with them.
-    long store = MessageDoors.storingChild(CAUSYNTH_ZK, path);
+    long store = MessageDoors.storingChild(CAUSYM_ZK, path);
     try {
       if (retryOnConnLoss) {
         zkCmdExecutor.retryOperation(() -> {
@@ -279,7 +279,7 @@ public class SolrZkClient implements Closeable {
         keeper.delete(path, version);
       }
     } finally {
-      causynthStored(store);
+      causymStored(store);
     }
   }
 
@@ -313,15 +313,15 @@ public class SolrZkClient implements Closeable {
    */
   public Stat exists(final String path, final Watcher watcher, boolean retryOnConnLoss)
       throws KeeperException, InterruptedException {
-    causynthReading(path);
+    causymReading(path);
     Stat found;
     if (retryOnConnLoss) {
       found = zkCmdExecutor.retryOperation(() -> keeper.exists(path, wrapWatcher(watcher)));
     } else {
       found = keeper.exists(path, wrapWatcher(watcher));
     }
-    causynthStoreRead(path, found == null ? -1 : found.getVersion(), "exists");
-    causynthWatched(path, watcher);
+    causymStoreRead(path, found == null ? -1 : found.getVersion(), "exists");
+    causymWatched(path, watcher);
     return found;
   }
 
@@ -330,14 +330,14 @@ public class SolrZkClient implements Closeable {
    */
   public Boolean exists(final String path, boolean retryOnConnLoss)
       throws KeeperException, InterruptedException {
-    causynthReading(path);
+    causymReading(path);
     Stat found;
     if (retryOnConnLoss) {
       found = zkCmdExecutor.retryOperation(() -> keeper.exists(path, null));
     } else {
       found = keeper.exists(path, null);
     }
-    causynthStoreRead(path, found == null ? -1 : found.getVersion(), "exists");
+    causymStoreRead(path, found == null ? -1 : found.getVersion(), "exists");
     return found != null;
   }
 
@@ -346,15 +346,15 @@ public class SolrZkClient implements Closeable {
    */
   public List<String> getChildren(final String path, final Watcher watcher, boolean retryOnConnLoss)
       throws KeeperException, InterruptedException {
-    causynthReading(path);
+    causymReading(path);
     List<String> children;
     if (retryOnConnLoss) {
       children = zkCmdExecutor.retryOperation(() -> keeper.getChildren(path, wrapWatcher(watcher)));
     } else {
       children = keeper.getChildren(path, wrapWatcher(watcher));
     }
-    // GraphChecker: this call returns no Stat, so no children version.
-    causynthStoreRead(path, -1, "getChildren");
+    // Causym: this call returns no Stat, so no children version.
+    causymStoreRead(path, -1, "getChildren");
     return children;
   }
 
@@ -363,14 +363,14 @@ public class SolrZkClient implements Closeable {
    */
   public List<String> getChildren(final String path, final Watcher watcher,Stat stat, boolean retryOnConnLoss)
       throws KeeperException, InterruptedException {
-    causynthReading(path);
+    causymReading(path);
     List<String> children;
     if (retryOnConnLoss) {
       children = zkCmdExecutor.retryOperation(() -> keeper.getChildren(path, wrapWatcher(watcher) , stat));
     } else {
       children = keeper.getChildren(path, wrapWatcher(watcher), stat);
     }
-    causynthStoreRead(path, stat == null ? -1 : stat.getCversion(), "getChildren");
+    causymStoreRead(path, stat == null ? -1 : stat.getCversion(), "getChildren");
     return children;
   }
 
@@ -379,109 +379,109 @@ public class SolrZkClient implements Closeable {
    */
   public byte[] getData(final String path, final Watcher watcher, final Stat stat, boolean retryOnConnLoss)
       throws KeeperException, InterruptedException {
-    // GraphChecker: the version read is the message its write sent.
+    // Causym: the version read is the message its write sent.
     final Stat read = stat != null ? stat : new Stat();
     byte[] data;
-    causynthReading(path);
+    causymReading(path);
     if (retryOnConnLoss) {
       data = zkCmdExecutor.retryOperation(() -> keeper.getData(path, wrapWatcher(watcher), read));
     } else {
       data = keeper.getData(path, wrapWatcher(watcher), read);
     }
-    causynthRead(path, read, data);
+    causymRead(path, read, data);
     try {
-      causynthReplied();
+      causymReplied();
     } catch (KeeperException lost) {
-      causynthLose(path, watcher);
+      causymLose(path, watcher);
       throw lost;
     }
-    causynthWatched(path, watcher);
+    causymWatched(path, watcher);
     return data;
   }
 
-  /** GraphChecker: where a read's reply reaches its caller, after the retries.  The store
+  /** Causym: where a read's reply reaches its caller, after the retries.  The store
    *  read's door is woven before it: a fault there is the reply lost -- ZooKeeper applied
    *  the read, and a client registers a watch only with a delivered reply. */
-  private static void causynthReplied() throws KeeperException {
+  private static void causymReplied() throws KeeperException {
   }
 
-  /** GraphChecker: per watcher, the paths whose data read's reply a fault lost after
-   *  ZooKeeper applied it (#causynthReplied): a data watch.  The server fires that watch, and
+  /** Causym: per watcher, the paths whose data read's reply a fault lost after
+   *  ZooKeeper applied it (#causymReplied): a data watch.  The server fires that watch, and
    *  a client that never got the reply has no watcher registered for it and drops the event:
-   *  its next data event for the path is dropped here (#causynthDropped), never delivered; a
+   *  its next data event for the path is dropped here (#causymDropped), never delivered; a
    *  child watch of the same watcher and path is another registration, neither dropped nor
    *  healing it.  Removing the client's watch instead (removeWatches) delivers a
    *  DataWatchRemoved to the watcher, which re-reads and re-arms at once -- a callback a lost
    *  reply never makes -- and drops the server's watch and any earlier registration with it. */
-  private final Map<Watcher, Set<String>> causynthLost =
+  private final Map<Watcher, Set<String>> causymLost =
       Collections.synchronizedMap(new IdentityHashMap<>());
 
-  private void causynthLose(String path, Watcher watcher) {
+  private void causymLose(String path, Watcher watcher) {
     if (watcher == null) return;
-    causynthLost.computeIfAbsent(watcher, w -> ConcurrentHashMap.newKeySet()).add(path);
+    causymLost.computeIfAbsent(watcher, w -> ConcurrentHashMap.newKeySet()).add(path);
   }
 
-  /** GraphChecker: a data read (getData, exists) whose reply arrived registers the data
+  /** Causym: a data read (getData, exists) whose reply arrived registers the data
    *  watch: a lost one before it is healed. */
-  private void causynthWatched(String path, Watcher watcher) {
+  private void causymWatched(String path, Watcher watcher) {
     if (watcher == null) return;
-    Set<String> lost = causynthLost.get(watcher);
+    Set<String> lost = causymLost.get(watcher);
     if (lost != null) lost.remove(path);
   }
 
-  /** GraphChecker: whether the event is the data event a lost reply's unregistered data
+  /** Causym: whether the event is the data event a lost reply's unregistered data
    *  watch drops (never a child event: NodeChildrenChanged). */
-  private boolean causynthDropped(Watcher watcher, WatchedEvent event) {
+  private boolean causymDropped(Watcher watcher, WatchedEvent event) {
     if (event.getPath() == null
         || event.getType() == Watcher.Event.EventType.NodeChildrenChanged) {
       return false;
     }
-    Set<String> lost = causynthLost.get(watcher);
+    Set<String> lost = causymLost.get(watcher);
     return lost != null && lost.remove(event.getPath());
   }
 
   /** What a watcher is, the same in every run: its class, a lambda's by its enclosing one. */
-  private static String causynthKind(Watcher watcher) {
+  private static String causymKind(Watcher watcher) {
     String name = watcher.getClass().getName();
     int lambda = name.indexOf("$$Lambda");
     return name.substring(name.lastIndexOf('.') + 1, lambda < 0 ? name.length() : lambda);
   }
 
-  /** GraphChecker's store transport: a znode version, written by one node, read by any. */
-  public static final String CAUSYNTH_ZK = "SOLR_ZK";
+  /** Causym's store transport: a znode version, written by one node, read by any. */
+  public static final String CAUSYM_ZK = "SOLR_ZK";
 
   /** A write of {@code data} made this version: what the store carries
    *  (MessageDoors#stored; a JSON document's leaves, MessageDoors#jsonWritten). */
-  private void causynthWrote(String path, int version, byte[] data) {
-    MessageDoors.stored(CAUSYNTH_ZK, path + "@" + version, this, data);
+  private void causymWrote(String path, int version, byte[] data) {
+    MessageDoors.stored(CAUSYM_ZK, path + "@" + version, this, data);
   }
 
   /** Opens a write's bracket at the path it writes (a sequential create's:
-   *  its prefix), closed by causynthStored in a finally around the write and
-   *  its causynthWrote: ZooKeeper notifies the version's watchers before the
+   *  its prefix), closed by causymStored in a finally around the write and
+   *  its causymWrote: ZooKeeper notifies the version's watchers before the
    *  write returns, and a callback that reads a version there meanwhile
    *  waits, a bound at most, until it is filed (MessageDoors#storing). */
-  private static long causynthStoring(String path, CreateMode mode) {
+  private static long causymStoring(String path, CreateMode mode) {
     // A sequential create takes the next number of its parent: its turn is
     // the parent's (MessageDoors#storingChild).
-    return mode.isSequential() ? MessageDoors.storingChild(CAUSYNTH_ZK, path)
-        : MessageDoors.storing(CAUSYNTH_ZK, path);
+    return mode.isSequential() ? MessageDoors.storingChild(CAUSYM_ZK, path)
+        : MessageDoors.storing(CAUSYM_ZK, path);
   }
 
   /** A multi's operation's bracket, by what it writes. */
-  private static long causynthStoring(Op op) {
+  private static long causymStoring(Op op) {
     if (op.getType() == ZooDefs.OpCode.delete) {
-      return MessageDoors.storingChild(CAUSYNTH_ZK, op.getPath());
+      return MessageDoors.storingChild(CAUSYM_ZK, op.getPath());
     }
     if (op instanceof Op.Create) {
       int flags = ((org.apache.zookeeper.proto.CreateRequest) op.toRequestRecord()).getFlags();
-      return causynthStoring(op.getPath(), CreateMode.fromFlag(flags, CreateMode.PERSISTENT));
+      return causymStoring(op.getPath(), CreateMode.fromFlag(flags, CreateMode.PERSISTENT));
     }
-    return MessageDoors.storing(CAUSYNTH_ZK, op.getPath());
+    return MessageDoors.storing(CAUSYM_ZK, op.getPath());
   }
 
   /** What a multi's create or set writes, or null. */
-  private static byte[] causynthData(Op op) {
+  private static byte[] causymData(Op op) {
     if (op == null) return null;
     org.apache.jute.Record request = op.toRequestRecord();
     return request instanceof org.apache.zookeeper.proto.CreateRequest
@@ -490,25 +490,25 @@ public class SolrZkClient implements Closeable {
         ? ((org.apache.zookeeper.proto.SetDataRequest) request).getData() : null;
   }
 
-  private static void causynthStored(long store) {
-    MessageDoors.storeEnded(CAUSYNTH_ZK, store);
+  private static void causymStored(long store) {
+    MessageDoors.storeEnded(CAUSYM_ZK, store);
   }
 
   /** A read's turn at the path it reads, before the store's call (a
    *  getChildren's: the parent, where a sequential create or a delete takes
    *  its turn), keyed as a write's (MessageDoors#reading). */
-  private static void causynthReading(String path) {
-    MessageDoors.reading(CAUSYNTH_ZK, path);
+  private static void causymReading(String path) {
+    MessageDoors.reading(CAUSYM_ZK, path);
   }
 
-  private void causynthRead(String path, Stat stat, byte[] data) {
-    MessageDoors.fetched(CAUSYNTH_ZK, path + "@" + stat.getVersion(), this, data);
+  private void causymRead(String path, Stat stat, byte[] data) {
+    MessageDoors.fetched(CAUSYM_ZK, path + "@" + stat.getVersion(), this, data);
   }
 
   /** A read at the store's call (exists, getChildren; a getData's is its fetch): the version
    *  it returned, -1 for no node or none stated (MessageDoors#storeRead). */
-  private void causynthStoreRead(String path, int version, String op) {
-    MessageDoors.storeRead(CAUSYNTH_ZK, path + "@" + version, op, this);
+  private void causymStoreRead(String path, int version, String op) {
+    MessageDoors.storeRead(CAUSYM_ZK, path + "@" + version, op, this);
   }
 
   /**
@@ -517,16 +517,16 @@ public class SolrZkClient implements Closeable {
   public Stat setData(final String path, final byte data[], final int version, boolean retryOnConnLoss)
       throws KeeperException, InterruptedException {
     Stat written;
-    long store = MessageDoors.storing(CAUSYNTH_ZK, path);
+    long store = MessageDoors.storing(CAUSYM_ZK, path);
     try {
       if (retryOnConnLoss) {
         written = zkCmdExecutor.retryOperation(() -> keeper.setData(path, data, version));
       } else {
         written = keeper.setData(path, data, version);
       }
-      causynthWrote(path, written.getVersion(), data);
+      causymWrote(path, written.getVersion(), data);
     } finally {
-      causynthStored(store);
+      causymStored(store);
     }
     return written;
   }
@@ -574,7 +574,7 @@ public class SolrZkClient implements Closeable {
       final CreateMode createMode, boolean retryOnConnLoss) throws KeeperException,
       InterruptedException {
     String created;
-    long store = causynthStoring(path, createMode);
+    long store = causymStoring(path, createMode);
     try {
       if (retryOnConnLoss) {
         created = zkCmdExecutor.retryOperation(() -> keeper.create(path, data, zkACLProvider.getACLsToAdd(path),
@@ -583,9 +583,9 @@ public class SolrZkClient implements Closeable {
         List<ACL> acls = zkACLProvider.getACLsToAdd(path);
         created = keeper.create(path, data, acls, createMode);
       }
-      causynthWrote(created, 0, data);
+      causymWrote(created, 0, data);
     } finally {
-      causynthStored(store);
+      causymStored(store);
     }
     return created;
   }
@@ -708,7 +708,7 @@ public class SolrZkClient implements Closeable {
         if (!retryOnConnLoss) retry = false;
       }
       try {
-        // GraphChecker: each node is made by create, with the same ACLs, retry
+        // Causym: each node is made by create, with the same ACLs, retry
         // flag and store hooks; its door stands where its retries return, so a
         // ConnectionLoss planted there escapes past ZkCmdExecutor's retries, as
         // a flapping connection's does, and no attempt the recording lacks runs.
@@ -770,7 +770,7 @@ public class SolrZkClient implements Closeable {
     List<OpResult> results;
     List<Long> stores = new ArrayList<>();
     for (Op each : ops) {
-      stores.add(causynthStoring(each));
+      stores.add(causymStoring(each));
     }
     try {
       if (retryOnConnLoss) {
@@ -783,14 +783,14 @@ public class SolrZkClient implements Closeable {
         Op each = op.hasNext() ? op.next() : null;
         String path = each == null ? null : each.getPath();
         if (result instanceof OpResult.CreateResult) {
-          causynthWrote(((OpResult.CreateResult) result).getPath(), 0, causynthData(each));
+          causymWrote(((OpResult.CreateResult) result).getPath(), 0, causymData(each));
         } else if (result instanceof OpResult.SetDataResult && path != null) {
-          causynthWrote(path, ((OpResult.SetDataResult) result).getStat().getVersion(), causynthData(each));
+          causymWrote(path, ((OpResult.SetDataResult) result).getStat().getVersion(), causymData(each));
         }
       }
     } finally {
       for (long store : stores) {
-        causynthStored(store);
+        causymStored(store);
       }
     }
     return results;
@@ -1060,22 +1060,22 @@ public class SolrZkClient implements Closeable {
 
     @Override
     public void process(final WatchedEvent event) {
-      // GraphChecker: the event of a watch whose reply a fault lost is dropped, as a client
+      // Causym: the event of a watch whose reply a fault lost is dropped, as a client
       // with no watcher registered for it drops it.
-      if (causynthDropped(watcher, event)) return;
+      if (causymDropped(watcher, event)) return;
       log.debug("Submitting job to respond to event {}", event);
       try {
-        // GraphChecker: a watch callback is no daemon turn.  ZooKeeper folds the
+        // Causym: a watch callback is no daemon turn.  ZooKeeper folds the
         // changes that arrive before a watch is set again into one event, so
         // how many callbacks a run takes is its timing's, and a schedule held to
         // the recording's count waits for callbacks that never come.
-        // The first version a callback reads is what caused it (causynthRead);
+        // The first version a callback reads is what caused it (causymRead);
         // a read outside a callback, a loop polling the store, is data only.
         if (watcher instanceof ConnectionManager) {
           zkConnManagerCallbackExecutor.submit(() -> watcher.process(event));
         } else {
-          zkCallbackExecutor.submit(() -> MessageDoors.notified(causynthKind(watcher),
-              CAUSYNTH_ZK, event.getPath(), String.valueOf(event.getType()),
+          zkCallbackExecutor.submit(() -> MessageDoors.notified(causymKind(watcher),
+              CAUSYM_ZK, event.getPath(), String.valueOf(event.getType()),
               () -> watcher.process(event)));
         }
       } catch (RejectedExecutionException e) {
