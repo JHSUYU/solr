@@ -76,7 +76,7 @@ import org.apache.solr.common.params.ModifiableSolrParams;
 import org.apache.solr.common.params.SolrParams;
 import org.apache.solr.common.util.CommandOperation;
 import org.apache.solr.common.util.ContentStream;
-import org.apache.solr.common.util.CausynthHttp;
+import org.apache.solr.common.util.CausymHttp;
 import org.apache.solr.common.util.JsonSchemaValidator;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.common.util.SimpleOrderedMap;
@@ -781,7 +781,7 @@ public class HttpSolrCall {
 
   protected void sendError(int code, String message) throws IOException {
     try {
-      causynthRespond();
+      causymRespond();
       response.sendError(code, message);
     } catch (EOFException e) {
       log.info("Unable to write error response, client closed connection or we are shutting down", e);
@@ -866,10 +866,10 @@ public class HttpSolrCall {
     solrReq.setParams(params);
   }
 
-  /** GraphChecker: the response to the request's exchange leaves. */
-  private void causynthRespond() {
+  /** Causym: the response to the request's exchange leaves. */
+  private void causymRespond() {
     if (!response.isCommitted()) {
-      CausynthHttp.respond((String) req.getAttribute(CausynthHttp.CORRELATION),
+      CausymHttp.respond((String) req.getAttribute(CausymHttp.CORRELATION),
           response::setHeader, solrDispatchFilter);
     }
   }
@@ -877,7 +877,7 @@ public class HttpSolrCall {
   private void writeResponse(SolrQueryResponse solrRsp, QueryResponseWriter responseWriter, Method reqMethod)
       throws IOException {
     try {
-      causynthRespond();
+      causymRespond();
       Object invalidStates = solrReq.getContext().get(CloudSolrClient.STATE_VERSION);
       //This is the last item added to the response and the client would expect it that way.
       //If that assumption is changed , it would fail. This is done to avoid an O(n) scan on

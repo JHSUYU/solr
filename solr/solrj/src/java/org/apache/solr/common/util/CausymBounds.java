@@ -19,7 +19,7 @@ package org.apache.solr.common.util;
 import java.util.concurrent.TimeUnit;
 
 /**
- * The bounds of an automatic cluster: a cluster test run as a GraphChecker
+ * The bounds of an automatic cluster: a cluster test run as a Causym
  * workload as it is written ({@link #AUTOMATIC} set on its JVM), where no
  * bound sized for a native run expires -- a socket or a connect, a wait for
  * a cluster state, a wait for a request.  The recording runs on a JIT and
@@ -28,12 +28,12 @@ import java.util.concurrent.TimeUnit;
  * What the system itself expires (a routing rule, a commit's reservation)
  * reads its clock and is not a bound here.
  */
-public final class CausynthBounds {
-  public static final String AUTOMATIC = "causynth.cluster.automatic";
+public final class CausymBounds {
+  public static final String AUTOMATIC = "causym.cluster.automatic";
   /** Longer than any case runs: a bound that cannot expire. */
   public static final int NEVER_MS = (int) TimeUnit.HOURS.toMillis(6);
 
-  private CausynthBounds() {
+  private CausymBounds() {
   }
 
   public static boolean automatic() {

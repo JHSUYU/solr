@@ -68,7 +68,7 @@ import org.apache.solr.client.solrj.cloud.DistribStateManager;
 import org.apache.solr.client.solrj.cloud.autoscaling.VersionedData;
 import org.apache.solr.client.solrj.impl.BinaryRequestWriter;
 import org.apache.solr.common.IteratorWriter;
-import edu.uva.liftlab.graphchecker.runtime.MessageDoors;
+import edu.uva.liftlab.causym.runtime.MessageDoors;
 import org.apache.solr.common.LinkedHashMapWriter;
 import org.apache.solr.common.MapWriter;
 import org.apache.solr.common.MapWriterMap;
@@ -221,22 +221,22 @@ public class Utils {
   }
 
   /**
-   * GraphChecker: the document a JSON write serializes, as this serializer walks it -- a
+   * Causym: the document a JSON write serializes, as this serializer walks it -- a
    * tree of maps, lists and leaves, each leaf the very object (or value) the writer holds --
    * built from the walk's events, writing nothing (MessageDoors#jsonWritten).
    */
-  static final class CausynthView extends MapWriterJSONWriter {
+  static final class CausymView extends MapWriterJSONWriter {
     private final java.util.ArrayDeque<Object> open = new java.util.ArrayDeque<>();
     private String name;
     private Object root;
 
-    private CausynthView() {
+    private CausymView() {
       super(new CharArr(), 0);
     }
 
     /** The document, or null where a writer's own events left it unbuilt. */
     static Object of(Object document) {
-      CausynthView view = new CausynthView();
+      CausymView view = new CausymView();
       try {
         view.write(document);
       } catch (RuntimeException unbuilt) {
@@ -422,7 +422,7 @@ public class Utils {
 //        o = ((IteratorWriter) o).toList(new ArrayList<>());
 //      }
 //    }
-    // GraphChecker: the serializer runs with the concolic VM's propagation paused; a store's
+    // Causym: the serializer runs with the concolic VM's propagation paused; a store's
     // content crosses leaf by leaf from the document below, never through these bytes
     // (MessageDoors#serializing).
     boolean paused = MessageDoors.serializing();
@@ -433,9 +433,9 @@ public class Utils {
     } finally {
       MessageDoors.serialized(paused);
     }
-    // GraphChecker: the document these bytes are, as the writer holds it,
+    // Causym: the document these bytes are, as the writer holds it,
     // for a store write of them to export leaf by leaf (MessageDoors#jsonWritten).
-    if (MessageDoors.capturingContent()) MessageDoors.jsonWritten(utf8, CausynthView.of(o));
+    if (MessageDoors.capturingContent()) MessageDoors.jsonWritten(utf8, CausymView.of(o));
     return utf8;
   }
 
@@ -465,7 +465,7 @@ public class Utils {
         JSONParser.OPTIONAL_OUTER_BRACES);
     try {
       Object parsed = STANDARDOBJBUILDER.apply(parser).getValStrict();
-      // GraphChecker: a fetched version's content, leaf by leaf (MessageDoors#jsonRead).
+      // Causym: a fetched version's content, leaf by leaf (MessageDoors#jsonRead).
       if (offset == 0 && length == utf8.length) MessageDoors.jsonRead(utf8, parsed);
       return parsed;
     } catch (IOException e) {
