@@ -53,12 +53,12 @@ import org.slf4j.LoggerFactory;
  * number of status requests, never an assertion.</p>
  */
 @LuceneTestCase.Slow
-public class TestCausynthReindexAbortAlias extends SolrCloudTestCase {
+public class TestCausymReindexAbortAlias extends SolrCloudTestCase {
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
-  private static final String SOURCE = "causynthReindex";
-  private static final String TARGET = "causynthReindex-target";
-  private static final String ALIAS = "causynthReindex-A";
-  private static final String REQUEST = "causynthReindex-start";
+  private static final String SOURCE = "causymReindex";
+  private static final String TARGET = "causymReindex-target";
+  private static final String ALIAS = "causymReindex-A";
+  private static final String REQUEST = "causymReindex-start";
   private static final int POLLS = 30;
 
   @BeforeClass
