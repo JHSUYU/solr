@@ -25,23 +25,23 @@ import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 
-import edu.uva.liftlab.graphchecker.runtime.MessageDoors;
-import edu.uva.liftlab.graphchecker.runtime.Sessions;
+import edu.uva.liftlab.causym.runtime.MessageDoors;
+import edu.uva.liftlab.causym.runtime.Sessions;
 import org.apache.solr.client.solrj.embedded.JettySolrRunner;
 import org.apache.solr.client.solrj.impl.BaseCloudSolrClient;
 import org.apache.solr.client.solrj.impl.CloudSolrClient;
 import org.apache.solr.client.solrj.impl.ZkClientClusterStateProvider;
 import org.apache.solr.common.cloud.SolrZkClient;
-import org.apache.solr.common.util.CausynthBounds;
-import org.apache.solr.common.util.CausynthRandom;
+import org.apache.solr.common.util.CausymBounds;
+import org.apache.solr.common.util.CausymRandom;
 import org.apache.solr.core.CoreContainer;
 
 /**
- * What makes a MiniSolrCloudCluster a GraphChecker workload: its nodes
+ * What makes a MiniSolrCloudCluster a Causym workload: its nodes
  * registered before the window opens, and the world the window starts from
  * the same in the recording and in every replay.
  *
- * <p>With {@link CausynthBounds#AUTOMATIC} set, any cluster test is a workload as it is
+ * <p>With {@link CausymBounds#AUTOMATIC} set, any cluster test is a workload as it is
  * written.  Each cluster registers its nodes as it comes up ({@code
  * auto<n>/node<i>}, in the order of their names) and its client, and every
  * cloud client a test builds against it ({@link #registerClient}); the first
@@ -66,7 +66,7 @@ import org.apache.solr.core.CoreContainer;
  * because the recording runs on a JIT and every replay on an interpreter
  * many times slower.</p>
  */
-public final class CausynthSolrCluster {
+public final class CausymSolrCluster {
   private static final String NODE = "CLUSTER_NODE";
   /** The system properties the cluster's solr.xml reads its timeouts from. */
   private static final String[] TIMEOUTS = {"solr.zkclienttimeout", "socketTimeout",
@@ -91,28 +91,28 @@ public final class CausynthSolrCluster {
   private static final List<ZkTestServer> SERVERS = new CopyOnWriteArrayList<>();
 
   static {
-    JettySolrRunner.causynthStarts = new Starts();
-    Sessions.expirer(CausynthSolrCluster::expire);
+    JettySolrRunner.causymStarts = new Starts();
+    Sessions.expirer(CausymSolrCluster::expire);
   }
 
-  private CausynthSolrCluster() {
+  private CausymSolrCluster() {
   }
 
   /** Before the cluster starts: its timeouts, and its ZooKeeper's session bound. */
   public static void configure(ZkTestServer zkServer) {
     for (String timeout : TIMEOUTS) {
-      System.setProperty(timeout, Integer.toString(CausynthBounds.NEVER_MS));
+      System.setProperty(timeout, Integer.toString(CausymBounds.NEVER_MS));
     }
     if (zkServer != null) {
-      zkServer.setMaxSessionTimeout(CausynthBounds.NEVER_MS);
+      zkServer.setMaxSessionTimeout(CausymBounds.NEVER_MS);
       SERVERS.add(zkServer);
     }
     // How long a collections API call waits for the Overseer to answer.
-    org.apache.solr.handler.admin.CollectionsHandler.DEFAULT_COLLECTION_OP_TIMEOUT = CausynthBounds.NEVER_MS;
+    org.apache.solr.handler.admin.CollectionsHandler.DEFAULT_COLLECTION_OP_TIMEOUT = CausymBounds.NEVER_MS;
   }
 
   /**
-   * A planted SessionExpired made real (GraphChecker's {@code Sessions#expires}):
+   * A planted SessionExpired made real (Causym's {@code Sessions#expires}):
    * the session of the door's client expired at the in-process server that
    * holds it, as {@code ChaosMonkey#expireSession} does -- the server deletes
    * its ephemeral nodes, and the client's next operations fail by themselves
@@ -318,8 +318,8 @@ public final class CausynthSolrCluster {
     if (zk != null) {
       MessageDoors.spelledAs(name, zk.getNodeName(),
           Long.toString(zk.getZkClient().getSolrZooKeeper().getSessionId()));
-      // Its place among the nodes, whatever port this run gave it (CausynthRandom#order).
-      CausynthRandom.ordinal(zk.getNodeName(),
+      // Its place among the nodes, whatever port this run gave it (CausymRandom#order).
+      CausymRandom.ordinal(zk.getNodeName(),
           Integer.parseInt(name.substring(name.lastIndexOf("/node") + "/node".length())));
     }
   }
@@ -331,10 +331,10 @@ public final class CausynthSolrCluster {
    * AbstractFullDistribZkTestBase test's leader brought back, a cluster's added node.  Any other
    * start (before the window, or of a cluster not yet registered) is left to the registration.
    */
-  private static final class Starts implements JettySolrRunner.CausynthStarts {
+  private static final class Starts implements JettySolrRunner.CausymStarts {
     @Override
     public long starting(JettySolrRunner jetty, String zkHost) {
-      synchronized (CausynthSolrCluster.class) {
+      synchronized (CausymSolrCluster.class) {
         String name = NODES.get(jetty);
         if (name != null) {
           MessageDoors.restartSource(jetty, NODE, "SOLR_NODE", name,
@@ -357,7 +357,7 @@ public final class CausynthSolrCluster {
       if (startup == 0L) {
         return;
       }
-      synchronized (CausynthSolrCluster.class) {
+      synchronized (CausymSolrCluster.class) {
         registerUp(jetty, NODES.get(jetty));
       }
       MessageDoors.endNodeStartup(startup);

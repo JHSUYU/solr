@@ -47,19 +47,19 @@ import org.junit.Test;
  * replica ACTIVE and leading for good: FORCELEADER would refuse ("The shard
  * already has an active leader").</p>
  *
- * <p>GraphChecker: a workaround (Overseer#failedStateWriteRetryDelayMs, 5 s
+ * <p>Causym: a workaround (Overseer#failedStateWriteRetryDelayMs, 5 s
  * here): after a state message's ZooKeeper write fails, the Overseer waits
  * before it refreshes and re-processes that message, so the messages queued
  * meanwhile (the replica's ACTIVE) are written after the wait.  With no failed
  * write nothing waits and the run is the one above.</p>
  */
 @LuceneTestCase.Slow
-public class TestCausynthForceLeaderStaleView extends SolrCloudTestCase {
-  private static final String COLLECTION = "causynthForceLeaderStale";
+public class TestCausymForceLeaderStaleView extends SolrCloudTestCase {
+  private static final String COLLECTION = "causymForceLeaderStale";
 
   @BeforeClass
   public static void setupCluster() throws Exception {
-    // GraphChecker: the workaround above, test-only.
+    // Causym: the workaround above, test-only.
     Overseer.failedStateWriteRetryDelayMs = 5000;
     configureCluster(2)
         .addConfig("conf", configset("cloud-minimal"))

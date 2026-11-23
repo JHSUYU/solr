@@ -23,11 +23,11 @@ import java.util.WeakHashMap;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 
-import edu.uva.liftlab.graphchecker.runtime.MessageDoors;
+import edu.uva.liftlab.causym.runtime.MessageDoors;
 import org.apache.solr.client.solrj.SolrRequest;
 
 /**
- * Solr's HTTP transport on GraphChecker's message doors: one exchange per
+ * Solr's HTTP transport on Causym's message doors: one exchange per
  * HTTP request, its context in headers.
  *
  * <p>The client names the exchange (a correlation id of its own) and sends it
@@ -46,14 +46,14 @@ import org.apache.solr.client.solrj.SolrRequest;
  * the starts it makes are that operation's, so another operation's extra
  * request (the Overseer's REQUESTSTATUS polls) renumbers no later one.</p>
  */
-public final class CausynthHttp {
+public final class CausymHttp {
   public static final String TRANSPORT = "SOLR_HTTP";
-  public static final String CORRELATION = "Causynth-Correlation";
-  public static final String TRACE = "Causynth-Trace";
-  public static final String SYMBOLIC = "Causynth-Symbolic";
+  public static final String CORRELATION = "Causym-Correlation";
+  public static final String TRACE = "Causym-Trace";
+  public static final String SYMBOLIC = "Causym-Symbolic";
   private static final String ATTEMPT = "1";
 
-  private CausynthHttp() {
+  private CausymHttp() {
   }
 
   /**
@@ -157,7 +157,7 @@ public final class CausynthHttp {
   /**
    * A request arrives at the node {@code owner} belongs to; its exchange is
    * the thread's until {@link MessageDoors#endInbound(MessageDoors.Inbound)}.
-   * A request from outside GraphChecker's doors names no exchange.
+   * A request from outside Causym's doors names no exchange.
    *
    * @return the installed exchange; its {@code correlationId} is empty for a
    *         request that named none

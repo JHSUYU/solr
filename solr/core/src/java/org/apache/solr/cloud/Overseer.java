@@ -16,7 +16,7 @@
  */
 package org.apache.solr.cloud;
 
-import edu.uva.liftlab.graphchecker.runtime.MessageDoors;
+import edu.uva.liftlab.causym.runtime.MessageDoors;
 
 import static org.apache.solr.common.params.CommonParams.ID;
 
@@ -63,7 +63,7 @@ import org.apache.solr.common.cloud.ZkNodeProps;
 import org.apache.solr.common.cloud.ZkStateReader;
 import org.apache.solr.common.params.CollectionAdminParams;
 import org.apache.solr.common.params.CollectionParams;
-import org.apache.solr.common.util.CausynthBounds;
+import org.apache.solr.common.util.CausymBounds;
 import org.apache.solr.common.util.IOUtils;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.common.util.ObjectReleaseTracker;
@@ -101,7 +101,7 @@ public class Overseer implements SolrCloseable {
   public static final String OVERSEER_ELECT = "/overseer_elect";
 
   /**
-   * GraphChecker: a workaround for solr-buggy-9440's workload, test-only.
+   * Causym: a workaround for solr-buggy-9440's workload, test-only.
    * Milliseconds the state-update loop waits, after a state message's
    * ZooKeeper write failed, before it refreshes and re-processes that message
    * (the main queue loop's exception path). So natively the messages queued
@@ -217,11 +217,11 @@ public class Overseer implements SolrCloseable {
                   log.debug("processMessage: fallbackQueueSize: {}, message = {}", fallbackQueue.getZkStats().getQueueLength(), message);
                 }
                 try {
-                  long causynthTick = MessageDoors.beginTick(Overseer.this, "OVERSEER_STATE_UPDATE");
+                  long causymTick = MessageDoors.beginTick(Overseer.this, "OVERSEER_STATE_UPDATE");
                   try {
                     clusterState = processQueueItem(message, clusterState, zkStateWriter, false, null);
                   } finally {
-                    MessageDoors.endTick(causynthTick);
+                    MessageDoors.endTick(causymTick);
                   }
                 } catch (Exception e) {
                   if (isBadMessage(e)) {
@@ -289,33 +289,33 @@ public class Overseer implements SolrCloseable {
                   clusterState = m.run(clusterState, Overseer.this, zkStateWriter);
                 }
                 // The callback always be called on this thread
-                // GraphChecker: one state message is one turn of the Overseer,
+                // Causym: one state message is one turn of the Overseer,
                 // however the queue batched it.
-                long causynthTick = MessageDoors.beginTick(Overseer.this, "OVERSEER_STATE_UPDATE");
+                long causymTick = MessageDoors.beginTick(Overseer.this, "OVERSEER_STATE_UPDATE");
                 try {
-                  // GraphChecker: the queue item is this turn's message; what
+                  // Causym: the queue item is this turn's message; what
                   // its writer carried arrives with it.
-                  MessageDoors.consumed(SolrZkClient.CAUSYNTH_ZK,
+                  MessageDoors.consumed(SolrZkClient.CAUSYM_ZK,
                       stateUpdateQueue.dir + "/" + head.first() + "@0");
-                  // GraphChecker: an automatic cluster writes each state message
+                  // Causym: an automatic cluster writes each state message
                   // in its own turn, so a node's watch callback that reads the
                   // version it wrote has that message for its cause.
                   clusterState = processQueueItem(message, clusterState, zkStateWriter,
-                      !CausynthBounds.automatic(), () -> {
+                      !CausymBounds.automatic(), () -> {
                     stateUpdateQueue.remove(processedNodes);
                     processedNodes.clear();
                   });
                 } finally {
-                  MessageDoors.endTick(causynthTick);
+                  MessageDoors.endTick(causymTick);
                 }
               }
               if (isClosed) break;
               // if an event comes in the next 100ms batch it together
-              // GraphChecker: not in an automatic cluster, which writes each state
+              // Causym: not in an automatic cluster, which writes each state
               // message in its own turn anyway: it takes what the queue holds now,
               // with no wait whose timeout's wake would be a turn of the clock's.
               queue = new LinkedList<>(stateUpdateQueue.peekElements(1000,
-                  CausynthBounds.automatic() ? 0 : 100, node -> !processedNodes.contains(node)));
+                  CausymBounds.automatic() ? 0 : 100, node -> !processedNodes.contains(node)));
             }
             fallbackQueueSize = processedNodes.size();
             // we should force write all pending updates because the next iteration might sleep until there
@@ -335,7 +335,7 @@ public class Overseer implements SolrCloseable {
           } catch (Exception e) {
             log.error("Exception in Overseer main queue loop", e);
             refreshClusterState = true; // it might have been a bad version error
-            // GraphChecker: a test-only wait before the retry of a failed
+            // Causym: a test-only wait before the retry of a failed
             // ZooKeeper write (see failedStateWriteRetryDelayMs).
             if (e instanceof KeeperException && failedStateWriteRetryDelayMs > 0) {
               try {
@@ -391,7 +391,7 @@ public class Overseer implements SolrCloseable {
         clusterState = zkStateWriter.enqueueUpdate(clusterState, zkWriteCommands, callback);
         if (!enableBatching)  {
           clusterState = zkStateWriter.writePendingUpdates();
-          // GraphChecker: unbatched (an automatic cluster), the message's queue item
+          // Causym: unbatched (an automatic cluster), the message's queue item
           // is removed after its write here, in its own turn: only enqueueUpdate's
           // flush called back, and whether it flushed was ZkStateWriter#maybeFlushAfter's
           // nanoTime, so the removal ran in this turn or after the batch, in the
