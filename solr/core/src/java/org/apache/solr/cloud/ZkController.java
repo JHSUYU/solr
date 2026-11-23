@@ -1264,14 +1264,14 @@ public class ZkController implements Closeable {
 
       // check replica's existence in clusterstate first
       try {
-        zkStateReader.waitForState(collection, CausynthLegacyCloud.isLegacy(zkStateReader) ? 60000 : 100, // GraphChecker: legacyCloud through one field-backed value
+        zkStateReader.waitForState(collection, CausymLegacyCloud.isLegacy(zkStateReader) ? 60000 : 100, // Causym: legacyCloud through one field-backed value
             TimeUnit.MILLISECONDS, (collectionState) -> getReplicaOrNull(collectionState, shardId, coreZkNodeName) != null);
       } catch (TimeoutException e) {
         throw new SolrException(ErrorCode.SERVER_ERROR, "Error registering SolrCore, timeout waiting for replica present in clusterstate");
       }
       Replica replica = getReplicaOrNull(zkStateReader.getClusterState().getCollectionOrNull(collection), shardId, coreZkNodeName);
       if (replica == null) {
-        throw new @edu.uva.liftlab.graphchecker.annotation.CausynthExceptionTarget("solr-adhoc-05") SolrException(ErrorCode.SERVER_ERROR, "Error registering SolrCore, replica is removed from clusterstate");
+        throw new @edu.uva.liftlab.causym.annotation.CausymExceptionTarget("solr-adhoc-05") SolrException(ErrorCode.SERVER_ERROR, "Error registering SolrCore, replica is removed from clusterstate");
       }
 
 
@@ -1323,7 +1323,7 @@ public class ZkController implements Closeable {
         // leader election perhaps?
 
         if (core == null) {
-          throw new @edu.uva.liftlab.graphchecker.annotation.CausynthExceptionTarget("solr-adhoc-07") SolrException(ErrorCode.SERVICE_UNAVAILABLE, "SolrCore is no longer available to register");
+          throw new @edu.uva.liftlab.causym.annotation.CausymExceptionTarget("solr-adhoc-07") SolrException(ErrorCode.SERVICE_UNAVAILABLE, "SolrCore is no longer available to register");
         }
 
         UpdateLog ulog = core.getUpdateHandler().getUpdateLog();
@@ -1641,7 +1641,7 @@ public class ZkController implements Closeable {
       props.put(ZkStateReader.SHARD_ID_PROP, cd.getCloudDescriptor().getShardId());
       props.put(ZkStateReader.COLLECTION_PROP, collection);
       props.put(ZkStateReader.REPLICA_TYPE, cd.getCloudDescriptor().getReplicaType().toString());
-      if (!CausynthLegacyCloud.isLegacy(zkStateReader)) { // GraphChecker: legacyCloud through one field-backed value
+      if (!CausymLegacyCloud.isLegacy(zkStateReader)) { // Causym: legacyCloud through one field-backed value
         props.put(ZkStateReader.FORCE_SET_STATE_PROP, "false");
       }
       if (numShards != null) {
@@ -1925,7 +1925,7 @@ public class ZkController implements Closeable {
    * @return Should publish the replica as down on startup
    */
   private boolean isPublishAsDownOnStartup(CloudDescriptor cloudDesc) {
-    if (!CausynthLegacyCloud.isLegacy(zkStateReader)) { // GraphChecker: legacyCloud through one field-backed value
+    if (!CausymLegacyCloud.isLegacy(zkStateReader)) { // Causym: legacyCloud through one field-backed value
       Replica replica = zkStateReader.getClusterState().getCollection(cloudDesc.getCollectionName())
           .getSlice(cloudDesc.getShardId())
           .getReplica(cloudDesc.getCoreNodeName());
@@ -1937,7 +1937,7 @@ public class ZkController implements Closeable {
   }
 
   private void checkStateInZk(CoreDescriptor cd) throws InterruptedException, NotInClusterStateException {
-    if (!CausynthLegacyCloud.isLegacy(zkStateReader)) { // GraphChecker: legacyCloud through one field-backed value
+    if (!CausymLegacyCloud.isLegacy(zkStateReader)) { // Causym: legacyCloud through one field-backed value
       CloudDescriptor cloudDesc = cd.getCloudDescriptor();
       String nodeName = cloudDesc.getCoreNodeName();
       if (nodeName == null) {

@@ -31,8 +31,8 @@ public class ShufflingReplicaListTransformer implements ReplicaListTransformer {
   public void transform(List<?> choices)
   {
     if (choices.size() > 1) {
-      // GraphChecker: drawn from node order in an automatic cluster (CausynthRandom).
-      org.apache.solr.common.util.CausynthRandom.shuffle(choices, r,
+      // Causym: drawn from node order in an automatic cluster (CausymRandom).
+      org.apache.solr.common.util.CausymRandom.shuffle(choices, r,
           choice -> choice instanceof org.apache.solr.common.cloud.Replica
               ? ((org.apache.solr.common.cloud.Replica) choice).getNodeName() : String.valueOf(choice));
     }

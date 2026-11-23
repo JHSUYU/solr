@@ -40,7 +40,7 @@ import org.apache.solr.common.cloud.DocCollection;
 import org.apache.solr.common.cloud.PerReplicaStates;
 import org.apache.solr.common.cloud.ZkStateReader;
 import org.apache.solr.common.params.ModifiableSolrParams;
-import org.apache.solr.common.util.CausynthRandom;
+import org.apache.solr.common.util.CausymRandom;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.common.util.SimpleOrderedMap;
 import org.apache.solr.common.util.Utils;
@@ -219,8 +219,8 @@ public abstract class BaseHttpClusterStateProvider implements ClusterStateProvid
   }
 
   /**
-   * GraphChecker: the live nodes a response named, in a HashSet's order as stock,
-   * and in an automatic cluster in its nodes' order (CausynthRandom#order): the
+   * Causym: the live nodes a response named, in a HashSet's order as stock,
+   * and in an automatic cluster in its nodes' order (CausymRandom#order): the
    * node a lookup asks first, and so the node the client's cluster-state fetches
    * stay on, was the first of the run's host:port names by hash, another node in
    * each run (solr-adhoc-10's seed replays: node2, node1 or node0 by their ports,
@@ -228,7 +228,7 @@ public abstract class BaseHttpClusterStateProvider implements ClusterStateProvid
    */
   private static Set<String> liveNodesOf(List<String> named) {
     List<String> nodes = new ArrayList<>(new HashSet<>(named));
-    CausynthRandom.order(nodes, node -> node);
+    CausymRandom.order(nodes, node -> node);
     return new LinkedHashSet<>(nodes);
   }
 

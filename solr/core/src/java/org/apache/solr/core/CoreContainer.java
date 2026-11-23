@@ -67,7 +67,7 @@ import org.apache.solr.client.solrj.impl.SolrHttpClientContextBuilder.Credential
 import org.apache.solr.client.solrj.io.SolrClientCache;
 import org.apache.solr.client.solrj.util.SolrIdentifierValidator;
 import org.apache.solr.cloud.CloudDescriptor;
-import org.apache.solr.cloud.CausynthLegacyCloud;
+import org.apache.solr.cloud.CausymLegacyCloud;
 import org.apache.solr.cloud.OverseerTaskQueue;
 import org.apache.solr.cloud.ZkController;
 import org.apache.solr.cloud.autoscaling.AutoScalingHandler;
@@ -1325,9 +1325,9 @@ public class CoreContainer {
       boolean preExisitingZkEntry = false;
       try {
         if (getZkController() != null) {
-        if (!CausynthLegacyCloud.isLegacy(getZkController().getZkStateReader())) { // GraphChecker: legacyCloud through one field-backed value
+        if (!CausymLegacyCloud.isLegacy(getZkController().getZkStateReader())) { // Causym: legacyCloud through one field-backed value
           if (cd.getCloudDescriptor().getCoreNodeName() == null) {
-            throw new @edu.uva.liftlab.graphchecker.annotation.CausynthExceptionTarget("solr-adhoc-19,solr-buggy-6101") SolrException(ErrorCode.SERVER_ERROR, "non legacy mode coreNodeName missing " + parameters.toString());
+            throw new @edu.uva.liftlab.causym.annotation.CausymExceptionTarget("solr-adhoc-19,solr-buggy-6101") SolrException(ErrorCode.SERVER_ERROR, "non legacy mode coreNodeName missing " + parameters.toString());
 
           }
           }
@@ -1762,7 +1762,7 @@ public class CoreContainer {
 
         if (docCollection != null) {
           Replica replica = docCollection.getReplica(cd.getCloudDescriptor().getCoreNodeName());
-          if (replica == null) throw new @edu.uva.liftlab.graphchecker.annotation.CausynthExceptionTarget("solr-adhoc-21") AssertionError();
+          if (replica == null) throw new @edu.uva.liftlab.causym.annotation.CausymExceptionTarget("solr-adhoc-21") AssertionError();
           if (replica.getType() == Replica.Type.TLOG) { // TODO: needed here?
             getZkController().stopReplicationFromLeader(core.getName());
             if (!cd.getCloudDescriptor().isLeader()) {

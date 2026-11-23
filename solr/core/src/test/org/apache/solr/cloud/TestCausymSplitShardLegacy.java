@@ -45,12 +45,12 @@ import org.junit.Test;
  *
  * <p>The collection is made through the Collections API: in the bug's own
  * world, where every read of legacyCloud (node and Overseer, all through
- * CausynthLegacyCloud) says non-legacy, CreateCollectionCmd names the core's
+ * CausymLegacyCloud) says non-legacy, CreateCollectionCmd names the core's
  * coreNodeName, so the first CREATE the node refuses is the split's.</p>
  */
 @LuceneTestCase.Slow
-public class TestCausynthSplitShardLegacy extends SolrCloudTestCase {
-  private static final String COLLECTION = "causynthSplitLegacy";
+public class TestCausymSplitShardLegacy extends SolrCloudTestCase {
+  private static final String COLLECTION = "causymSplitLegacy";
 
   @BeforeClass
   public static void setupCluster() throws Exception {
