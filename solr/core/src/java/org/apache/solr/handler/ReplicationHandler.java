@@ -16,7 +16,7 @@
  */
 package org.apache.solr.handler;
 
-import edu.uva.liftlab.graphchecker.runtime.MessageDoors;
+import edu.uva.liftlab.causym.runtime.MessageDoors;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -1250,12 +1250,12 @@ public class ReplicationHandler extends RequestHandlerBase implements SolrCoreAw
         return;
       }
       ExecutorUtil.setServerThreadFlag(true); // so PKI auth works
-      // GraphChecker: one poll is one turn of this follower's node.
-      long causynthTick = MessageDoors.beginTick(core.getCoreContainer(), "REPLICATION_POLL");
+      // Causym: one poll is one turn of this follower's node.
+      long causymTick = MessageDoors.beginTick(core.getCoreContainer(), "REPLICATION_POLL");
       try {
-        // GraphChecker: a poll the recording never made, which a replay let
+        // Causym: a poll the recording never made, which a replay let
         // go only because the run waits on this task, polls nothing.
-        if (MessageDoors.vacant(causynthTick)) return;
+        if (MessageDoors.vacant(causymTick)) return;
         log.debug("Polling for index modifications");
         markScheduledExecutionStart();
         IndexFetchResult fetchResult = doFetch(null, false);
@@ -1263,14 +1263,14 @@ public class ReplicationHandler extends RequestHandlerBase implements SolrCoreAw
       } catch (Exception e) {
         log.error("Exception in fetching index", e);
       } finally {
-        MessageDoors.endTick(causynthTick);
+        MessageDoors.endTick(causymTick);
         ExecutorUtil.setServerThreadFlag(null);
       }
     };
     executorService = Executors.newSingleThreadScheduledExecutor(
         new SolrNamedThreadFactory("indexFetcher"));
     // Randomize initial delay, with a minimum of 1ms
-    long initialDelayNs = org.apache.solr.common.util.CausynthRandom.create().nextLong() % pollIntervalNs
+    long initialDelayNs = org.apache.solr.common.util.CausymRandom.create().nextLong() % pollIntervalNs
         + TimeUnit.NANOSECONDS.convert(1, TimeUnit.MILLISECONDS);
     executorService.scheduleAtFixedRate(task, initialDelayNs, pollIntervalNs, TimeUnit.NANOSECONDS);
     log.info("Poll scheduled at an interval of {}ms",

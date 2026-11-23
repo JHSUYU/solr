@@ -2503,7 +2503,7 @@ public abstract class SolrTestCaseJ4 extends SolrTestCase {
 
     public CloudHttp2SolrClientBuilder(MiniSolrCloudCluster cluster) {
       super(new ArrayList<>());
-      this.causynthCluster = cluster;
+      this.causymCluster = cluster;
       if (random().nextBoolean()) {
         this.zkHosts.add(cluster.getZkServer().getZkAddress());
       } else {
@@ -2530,15 +2530,15 @@ public abstract class SolrTestCaseJ4 extends SolrTestCase {
       this.parallelUpdates = random().nextBoolean();
     }
 
-    /** GraphChecker: the cluster this client is built against, when the test named it. */
-    private MiniSolrCloudCluster causynthCluster;
+    /** Causym: the cluster this client is built against, when the test named it. */
+    private MiniSolrCloudCluster causymCluster;
 
-    /** GraphChecker: a client built against an automatic cluster is one of its client nodes. */
+    /** Causym: a client built against an automatic cluster is one of its client nodes. */
     @Override
     public CloudHttp2SolrClient build() {
       CloudHttp2SolrClient client = super.build();
-      if (org.apache.solr.common.util.CausynthBounds.automatic()) {
-        org.apache.solr.cloud.CausynthSolrCluster.registerClient(causynthCluster, client, client.getLbClient());
+      if (org.apache.solr.common.util.CausymBounds.automatic()) {
+        org.apache.solr.cloud.CausymSolrCluster.registerClient(causymCluster, client, client.getLbClient());
       }
       return client;
     }
@@ -2570,7 +2570,7 @@ public abstract class SolrTestCaseJ4 extends SolrTestCase {
     }
 
     public CloudSolrClientBuilder(MiniSolrCloudCluster cluster) {
-      this.causynthCluster = cluster;
+      this.causymCluster = cluster;
       if (random().nextBoolean()) {
         this.zkHosts.add(cluster.getZkServer().getZkAddress());
       } else {
@@ -2597,15 +2597,15 @@ public abstract class SolrTestCaseJ4 extends SolrTestCase {
       this.parallelUpdates = random().nextBoolean();
     }
 
-    /** GraphChecker: the cluster this client is built against, when the test named it. */
-    private MiniSolrCloudCluster causynthCluster;
+    /** Causym: the cluster this client is built against, when the test named it. */
+    private MiniSolrCloudCluster causymCluster;
 
-    /** GraphChecker: a client built against an automatic cluster is one of its client nodes. */
+    /** Causym: a client built against an automatic cluster is one of its client nodes. */
     @Override
     public CloudSolrClient build() {
       CloudSolrClient client = super.build();
-      if (org.apache.solr.common.util.CausynthBounds.automatic()) {
-        org.apache.solr.cloud.CausynthSolrCluster.registerClient(causynthCluster, client, client.getLbClient());
+      if (org.apache.solr.common.util.CausymBounds.automatic()) {
+        org.apache.solr.cloud.CausymSolrCluster.registerClient(causymCluster, client, client.getLbClient());
       }
       return client;
     }

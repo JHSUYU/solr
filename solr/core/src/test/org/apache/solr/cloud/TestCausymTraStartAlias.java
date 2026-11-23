@@ -52,10 +52,10 @@ import org.junit.Test;
  * client's view, a bounded number of times.</p>
  */
 @LuceneTestCase.Slow
-public class TestCausynthTraStartAlias extends SolrCloudTestCase {
-  private static final String ROUTED = "causynthTra";
-  private static final String PLAIN = "causynthTra-B";
-  private static final String PLAIN_TARGET = "causynthTra-D";
+public class TestCausymTraStartAlias extends SolrCloudTestCase {
+  private static final String ROUTED = "causymTra";
+  private static final String PLAIN = "causymTra-B";
+  private static final String PLAIN_TARGET = "causymTra-D";
   private static final String START = "2019-09-14T03:00:00Z/DAY";
   private static final String TIME_FIELD = "timestamp_dt";
   private static final int VIEW_POLLS = 30;
