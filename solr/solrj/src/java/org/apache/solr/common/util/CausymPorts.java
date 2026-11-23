@@ -22,7 +22,7 @@ import java.net.ServerSocket;
 
 /**
  * The ports an automatic cluster's servers listen on ({@link
- * CausynthBounds#AUTOMATIC}): free, and each above every one handed out
+ * CausymBounds#AUTOMATIC}): free, and each above every one handed out
  * before, so the nodes' names -- host and port, which live-node lists sort
  * and placement and clients' shuffles order -- sort the way the servers
  * were made, in the recording and in every replay.  A Jetty given no port,
@@ -31,10 +31,10 @@ import java.net.ServerSocket;
  * on random ports, sorted otherwise in each run, and a seeded shuffle of
  * them chose another node (solr-adhoc-31, round MB18s).
  */
-public final class CausynthPorts {
+public final class CausymPorts {
   private static int lastPort;
 
-  private CausynthPorts() {
+  private CausymPorts() {
   }
 
   /** The next port: the first at random (replays of one case share a host), then increasing. */
