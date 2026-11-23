@@ -36,7 +36,7 @@ import org.apache.lucene.index.IndexWriter;
 import org.apache.solr.common.NonExistentCoreException;
 import org.apache.solr.common.SolrException;
 import org.apache.solr.common.SolrException.ErrorCode;
-import org.apache.solr.common.util.CausynthBounds;
+import org.apache.solr.common.util.CausymBounds;
 import org.apache.solr.common.util.Pair;
 import org.apache.solr.core.CoreContainer;
 import org.apache.solr.core.SolrCore;
@@ -545,9 +545,9 @@ public class TestInjection {
     if (reindexLatch != null) {
       try {
         log.info("Waiting in ReindexCollectionCmd for up to 60s");
-        // GraphChecker: in an automatic cluster the latch waits for its test,
-        // however slowly a replay runs (CausynthBounds).
-        return reindexLatch.await(CausynthBounds.of(60, TimeUnit.SECONDS), TimeUnit.SECONDS);
+        // Causym: in an automatic cluster the latch waits for its test,
+        // however slowly a replay runs (CausymBounds).
+        return reindexLatch.await(CausymBounds.of(60, TimeUnit.SECONDS), TimeUnit.SECONDS);
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
       }

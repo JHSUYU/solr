@@ -77,8 +77,8 @@ import org.apache.solr.common.params.ModifiableSolrParams;
 import org.apache.solr.common.params.ShardParams;
 import org.apache.solr.common.params.SolrParams;
 import org.apache.solr.common.params.UpdateParams;
-import org.apache.solr.common.util.CausynthHttp;
-import org.apache.solr.common.util.CausynthRandom;
+import org.apache.solr.common.util.CausymHttp;
+import org.apache.solr.common.util.CausymRandom;
 import org.apache.solr.common.util.ExecutorUtil;
 import org.apache.solr.common.util.Hash;
 import org.apache.solr.common.util.NamedList;
@@ -100,7 +100,7 @@ public abstract class BaseCloudSolrClient extends SolrClient {
   private volatile String defaultCollection;
   //no of times collection state to be reloaded if stale state error is received
   private static final int MAX_STALE_RETRIES = Integer.parseInt(System.getProperty("cloudSolrClientMaxStaleRetries", "5"));
-  private Random rand = CausynthRandom.create();
+  private Random rand = CausymRandom.create();
 
   private final boolean updatesToLeaders;
   private final boolean directUpdatesToLeadersOnly;
@@ -543,9 +543,9 @@ public abstract class BaseCloudSolrClient extends SolrClient {
     final NamedList<Throwable> exceptions = new NamedList<>();
     @SuppressWarnings({"rawtypes"})
     final NamedList<NamedList> shardResponses = new NamedList<>(routes.size()+1); // +1 for deleteQuery
-    // GraphChecker: the routes in node order in an automatic cluster, not a port-keyed map's (CausynthRandom#order).
+    // Causym: the routes in node order in an automatic cluster, not a port-keyed map's (CausymRandom#order).
     final List<Map.Entry<String, ? extends LBSolrClient.Req>> routed = new ArrayList<>(routes.entrySet());
-    CausynthRandom.order(routed, Map.Entry::getKey);
+    CausymRandom.order(routed, Map.Entry::getKey);
 
     long start = System.nanoTime();
 
@@ -623,7 +623,7 @@ public abstract class BaseCloudSolrClient extends SolrClient {
       nonRoutableRequest.setParams(nonRoutableParams);
       nonRoutableRequest.setBasicAuthCredentials(request.getBasicAuthUser(), request.getBasicAuthPassword());
       List<String> urlList = new ArrayList<>(routes.keySet());
-      CausynthRandom.shuffle(urlList, rand, url -> url);
+      CausymRandom.shuffle(urlList, rand, url -> url);
       LBSolrClient.Req req = new LBSolrClient.Req(nonRoutableRequest, urlList);
       try {
         LBSolrClient.Rsp rsp = getLbClient().request(req);
@@ -878,8 +878,8 @@ public abstract class BaseCloudSolrClient extends SolrClient {
    */
   protected NamedList<Object> requestWithRetryOnStaleState(@SuppressWarnings({"rawtypes"})SolrRequest request, int retryCount, List<String> inputCollections)
       throws SolrServerException, IOException {
-    // GraphChecker: an attempt at the call starts here, free of the response the thread read last.
-    CausynthHttp.callStarting();
+    // Causym: an attempt at the call starts here, free of the response the thread read last.
+    CausymHttp.callStarting();
     connect(); // important to call this before you start working with the ZkStateReader
 
     // build up a _stateVer_ param to pass to the server containing all of the
@@ -905,7 +905,7 @@ public abstract class BaseCloudSolrClient extends SolrClient {
         // track the version of state we're using on the client side using the _stateVer_ param
         DocCollection coll = getDocCollection(requestedCollection, null);
         if (coll == null) {
-          throw new @edu.uva.liftlab.graphchecker.annotation.CausynthExceptionTarget("solr-bugs-tra-start-overwrite") SolrException(SolrException.ErrorCode.BAD_REQUEST, "Collection not found: " + requestedCollection);
+          throw new @edu.uva.liftlab.causym.annotation.CausymExceptionTarget("solr-bugs-tra-start-overwrite") SolrException(SolrException.ErrorCode.BAD_REQUEST, "Collection not found: " + requestedCollection);
         }
         int collVer = coll.getZNodeVersion();
         if (coll.getStateFormat()>1) {
@@ -1104,14 +1104,14 @@ public abstract class BaseCloudSolrClient extends SolrClient {
     if (request instanceof V2Request) {
       if (!liveNodes.isEmpty()) {
         List<String> liveNodesList = new ArrayList<>(liveNodes);
-        CausynthRandom.shuffle(liveNodesList, rand, node -> node);
+        CausymRandom.shuffle(liveNodesList, rand, node -> node);
         theUrlList.add(Utils.getBaseUrlForNodeName(liveNodesList.get(0), urlScheme));
       }
 
     } else if (ADMIN_PATHS.contains(request.getPath())) {
-      // GraphChecker: tried in node order in an automatic cluster, not a port-keyed set's.
+      // Causym: tried in node order in an automatic cluster, not a port-keyed set's.
       List<String> liveNodesList = new ArrayList<>(liveNodes);
-      CausynthRandom.order(liveNodesList, node -> node);
+      CausymRandom.order(liveNodesList, node -> node);
       for (String liveNode : liveNodesList) {
         theUrlList.add(Utils.getBaseUrlForNodeName(liveNode, urlScheme));
       }

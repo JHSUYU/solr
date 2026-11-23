@@ -34,7 +34,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * The workload of a shard split followed by an add (from solr-buggy-6101's
- * TestCausynthSplitShardLegacy, without its legacyCloud setting, in the
+ * TestCausymSplitShardLegacy, without its legacyCloud setting, in the
  * bug-check style: each failure returned, the wait bounded by a count).
  *
  * <p>One node: a 1x1 collection, four documents, SPLITSHARD of shard1, a wait
@@ -47,13 +47,13 @@ import org.slf4j.LoggerFactory;
  * for the document's hash ("No active slice servicing hash code").</p>
  */
 @LuceneTestCase.Slow
-public class TestCausynthSplitShardHash extends SolrCloudTestCase {
+public class TestCausymSplitShardHash extends SolrCloudTestCase {
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
-  private static final String COLLECTION = "causynthSplitHash";
+  private static final String COLLECTION = "causymSplitHash";
   private static final int SHAPE_POLLS = 30;
 
   static {
-    // GraphChecker: replica states in the collection's state.json, as Solr 8.11 keeps them unless a
+    // Causym: replica states in the collection's state.json, as Solr 8.11 keeps them unless a
     // collection asks for per-replica states (which the test framework picks at random).
     System.setProperty("use.perreplica", "false");
   }
@@ -87,7 +87,7 @@ public class TestCausynthSplitShardHash extends SolrCloudTestCase {
       log.warn("SPLITSHARD failed", e);
       split = e;
     }
-    // GraphChecker: node0, the parent's host, must have seen the split's outcome before the add, which client0 routes to
+    // Causym: node0, the parent's host, must have seen the split's outcome before the add, which client0 routes to
     // the parent by the state it cached at its first add (CloudSolrClient keeps it 60 s): wait until node0's own view no
     // longer shows shard1 active (a finished split switches it to inactive; a split rolled back leaves it active, and
     // the wait ends at its bound)
