@@ -49,9 +49,9 @@ import org.junit.Test;
  * is not on: the expiry check compares two nodes' clocks, as in the bug.</p>
  */
 @LuceneTestCase.Slow
-public class TestCausynthMigrateRuleTarget extends SolrCloudTestCase {
-  private static final String SOURCE = "causynthMigrate-source";
-  private static final String TARGET = "causynthMigrate-target";
+public class TestCausymMigrateRuleTarget extends SolrCloudTestCase {
+  private static final String SOURCE = "causymMigrate-source";
+  private static final String TARGET = "causymMigrate-target";
 
   @BeforeClass
   public static void setupCluster() throws Exception {

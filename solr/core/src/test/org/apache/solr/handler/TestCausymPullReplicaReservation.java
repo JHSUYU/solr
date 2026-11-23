@@ -53,15 +53,15 @@ import org.junit.Test;
  * be deleted and the follower's next filecontent of G refused.</p>
  */
 @LuceneTestCase.Slow
-public class TestCausynthPullReplicaReservation extends SolrCloudTestCase {
-  private static final String COLLECTION = "causynthPull";
+public class TestCausymPullReplicaReservation extends SolrCloudTestCase {
+  private static final String COLLECTION = "causymPull";
   private static final int COMMITS = 1;
   private static final int DOCS_PER_COMMIT = 20;
 
   @BeforeClass
   public static void setupCluster() throws Exception {
     configureCluster(2)
-        .addConfig("conf", configset("causynth-replication"))
+        .addConfig("conf", configset("causym-replication"))
         .configure();
   }
 
