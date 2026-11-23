@@ -792,9 +792,9 @@ public class SolrConfigHandler extends RequestHandlerBase implements SolrCoreAwa
    * Block up to a specified maximum time until we see agreement on the schema
    * version in ZooKeeper across all replicas for a collection.
    */
-  /** How long a config edit waits for every replica to load it: 30 s, none in an automatic cluster (CausynthBounds). */
+  /** How long a config edit waits for every replica to load it: 30 s, none in an automatic cluster (CausymBounds). */
   private static final int REPLICAS_WAIT_SECS =
-      (int) org.apache.solr.common.util.CausynthBounds.of(30, TimeUnit.SECONDS);
+      (int) org.apache.solr.common.util.CausymBounds.of(30, TimeUnit.SECONDS);
 
   private static void waitForAllReplicasState(String collection,
                                               ZkController zkController,

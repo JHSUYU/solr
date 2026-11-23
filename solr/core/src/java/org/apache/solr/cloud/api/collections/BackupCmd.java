@@ -188,7 +188,7 @@ public class BackupCmd implements OverseerCollectionMessageHandler.Cmd {
     // If that is not possible, we choose any other replica for the given shard.
     Collection<CoreSnapshotMetaData> snapshots = snapshotMeta.getReplicaSnapshotsForShard(slice.getName());
 
-    // GraphChecker: the stock code's two stream().filter().findFirst() searches, as loops with the same
+    // Causym: the stock code's two stream().filter().findFirst() searches, as loops with the same
     // semantics (the first match in iteration order).  A stream decides inside the JDK which element it
     // returns, so a guard on the Optional it returns tests a value no traced decision chose; here every test
     // is a branch of this class, and the throw is guarded by a boolean a helper returns from its own branches.
@@ -206,7 +206,7 @@ public class BackupCmd implements OverseerCollectionMessageHandler.Cmd {
     }
 
     if (!hasLiveReplicaWithSnapshot(snapshotMeta, slice)) {
-      throw new @edu.uva.liftlab.graphchecker.annotation.CausynthExceptionTarget("solr-bugs-snapshot-no-active") SolrException(ErrorCode.SERVER_ERROR,
+      throw new @edu.uva.liftlab.causym.annotation.CausymExceptionTarget("solr-bugs-snapshot-no-active") SolrException(ErrorCode.SERVER_ERROR,
               "Unable to find any live replica with a snapshot named " + snapshotMeta.getName() + " for shard " + slice.getName());
     }
 
