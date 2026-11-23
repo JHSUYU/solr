@@ -62,8 +62,8 @@ import org.junit.Test;
  * the replica turns DOWN at the start of the stop.</p>
  */
 @LuceneTestCase.Slow
-public class TestCausynthForceLeaderStaleView extends SolrCloudTestCase {
-  private static final String COLLECTION = "causynthForceLeaderStale";
+public class TestCausymForceLeaderStaleView extends SolrCloudTestCase {
+  private static final String COLLECTION = "causymForceLeaderStale";
   private static final int QUIET_POLLS = 60;
 
   @BeforeClass
@@ -91,7 +91,7 @@ public class TestCausynthForceLeaderStaleView extends SolrCloudTestCase {
         } catch (Exception e) {
           stopFailure.set(e);
         }
-      }, "causynth-stop-second");
+      }, "causym-stop-second");
       stopper.start();
       waitForState("the replica on the stopped node is not DOWN", COLLECTION,
           (liveNodes, collection) -> collection != null && collection.getReplicas().stream()

@@ -47,10 +47,10 @@ import org.slf4j.LoggerFactory;
  * where it failed, the second is the one that fails.</p>
  */
 @LuceneTestCase.Slow
-public class TestCausynthMigrateBufferLeak extends SolrCloudTestCase {
+public class TestCausymMigrateBufferLeak extends SolrCloudTestCase {
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
-  private static final String SOURCE = "causynthBuffer-source";
-  private static final String TARGET = "causynthBuffer-target";
+  private static final String SOURCE = "causymBuffer-source";
+  private static final String TARGET = "causymBuffer-target";
 
   @BeforeClass
   public static void setupCluster() throws Exception {

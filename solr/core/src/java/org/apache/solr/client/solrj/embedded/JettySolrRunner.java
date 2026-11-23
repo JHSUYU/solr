@@ -48,8 +48,8 @@ import org.apache.lucene.util.Constants;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.cloud.SocketProxy;
 import org.apache.solr.client.solrj.impl.HttpSolrClient;
-import org.apache.solr.common.util.CausynthBounds;
-import org.apache.solr.common.util.CausynthPorts;
+import org.apache.solr.common.util.CausymBounds;
+import org.apache.solr.common.util.CausymPorts;
 import org.apache.solr.common.util.ExecutorUtil;
 import org.apache.solr.common.util.SolrNamedThreadFactory;
 import org.apache.solr.common.util.TimeSource;
@@ -128,11 +128,11 @@ public class JettySolrRunner {
   private volatile boolean started = false;
 
   /**
-   * GraphChecker: what a start of a jetty is to the cluster adapter of the
-   * test that runs it (the test framework's CausynthSolrCluster), when one
+   * Causym: what a start of a jetty is to the cluster adapter of the
+   * test that runs it (the test framework's CausymSolrCluster), when one
    * is set: what the start makes before the node is up is the node's.
    */
-  public interface CausynthStarts {
+  public interface CausymStarts {
     /** Before the start; {@code zkHost} is the ZooKeeper the node joins.
      *  Returns what {@link #started} takes. */
     long starting(JettySolrRunner jetty, String zkHost);
@@ -141,8 +141,8 @@ public class JettySolrRunner {
     void started(JettySolrRunner jetty, long startup);
   }
 
-  /** GraphChecker: the cluster adapter, or null. */
-  public static volatile CausynthStarts causynthStarts;
+  /** Causym: the cluster adapter, or null. */
+  public static volatile CausymStarts causymStarts;
 
   public static class DebugFilter implements Filter {
     private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
@@ -267,8 +267,8 @@ public class JettySolrRunner {
 
     if (enableProxy) {
       try {
-        // GraphChecker: an automatic cluster's proxy listens on an increasing port (CausynthPorts).
-        proxy = new SocketProxy(CausynthBounds.automatic() ? CausynthPorts.next() : 0,
+        // Causym: an automatic cluster's proxy listens on an increasing port (CausymPorts).
+        proxy = new SocketProxy(CausymBounds.automatic() ? CausymPorts.next() : 0,
             config.sslConfig != null && config.sslConfig.isSSLMode());
       } catch (Exception e) {
         throw new RuntimeException(e);
@@ -280,9 +280,9 @@ public class JettySolrRunner {
   }
 
   private void init(int port) {
-    // GraphChecker: an automatic cluster's server given no port takes an increasing one (CausynthPorts).
-    if (port == 0 && CausynthBounds.automatic()) {
-      port = CausynthPorts.next();
+    // Causym: an automatic cluster's server given no port takes an increasing one (CausymPorts).
+    if (port == 0 && CausymBounds.automatic()) {
+      port = CausymPorts.next();
     }
 
     QueuedThreadPool qtp = new QueuedThreadPool();
@@ -512,9 +512,9 @@ public class JettySolrRunner {
     // Do not let Jetty/Solr pollute the MDC for this thread
     Map<String, String> prevContext = MDC.getCopyOfContextMap();
     MDC.clear();
-    CausynthStarts causynth = causynthStarts;
-    long causynthStartup = causynth == null ? 0L
-        : causynth.starting(this, nodeProperties.getProperty("zkHost", System.getProperty("zkHost")));
+    CausymStarts causym = causymStarts;
+    long causymStartup = causym == null ? 0L
+        : causym.starting(this, nodeProperties.getProperty("zkHost", System.getProperty("zkHost")));
 
     try {
       int port = reusePort && jettyPort != -1 ? jettyPort : this.config.port;
@@ -567,8 +567,8 @@ public class JettySolrRunner {
       } else {
         MDC.clear();
       }
-      if (causynth != null) {
-        causynth.started(this, causynthStartup);
+      if (causym != null) {
+        causym.started(this, causymStartup);
       }
     }
   }

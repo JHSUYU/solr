@@ -54,7 +54,7 @@ import org.apache.solr.common.cloud.Slice;
 import org.apache.solr.common.cloud.ZkNodeProps;
 import org.apache.solr.common.cloud.ZkStateReader;
 import org.apache.solr.common.params.CollectionAdminParams;
-import org.apache.solr.common.util.CausynthRandom;
+import org.apache.solr.common.util.CausymRandom;
 import org.apache.solr.common.util.StrUtils;
 import org.apache.solr.common.util.Utils;
 import org.apache.solr.core.NodeRoles;
@@ -254,12 +254,12 @@ public class Assign {
       nodeList.retainAll(liveNodes);
       if (message.getBool(OverseerCollectionMessageHandler.CREATE_NODE_SET_SHUFFLE,
           OverseerCollectionMessageHandler.CREATE_NODE_SET_SHUFFLE_DEFAULT)) {
-        // GraphChecker: drawn from node order in an automatic cluster (CausynthRandom).
-        CausynthRandom.shuffle(nodeList, random, node -> node);
+        // Causym: drawn from node order in an automatic cluster (CausymRandom).
+        CausymRandom.shuffle(nodeList, random, node -> node);
       }
     } else {
       nodeList = new ArrayList<>(filterNonDataNodes(zk, liveNodes));
-      CausynthRandom.shuffle(nodeList, random, node -> node);
+      CausymRandom.shuffle(nodeList, random, node -> node);
     }
 
     return nodeList;
@@ -600,8 +600,8 @@ public class Assign {
       HashMap<String, Assign.ReplicaCount> nodeNameVsShardCount = Assign.getNodeNameVsShardCount(assignRequest.collectionName, clusterState, assignRequest.nodes);
       if (nodeList == null || nodeList.isEmpty()) {
         ArrayList<Assign.ReplicaCount> sortedNodeList = new ArrayList<>(nodeNameVsShardCount.values());
-        // GraphChecker: equal weights in node order in an automatic cluster, not a port-keyed map's.
-        CausynthRandom.order(sortedNodeList, replicaCount -> replicaCount.nodeName);
+        // Causym: equal weights in node order in an automatic cluster, not a port-keyed map's.
+        CausymRandom.order(sortedNodeList, replicaCount -> replicaCount.nodeName);
         sortedNodeList.sort(Comparator.comparingInt(Assign.ReplicaCount::weight));
         nodeList = sortedNodeList.stream().map(replicaCount -> replicaCount.nodeName).collect(Collectors.toList());
       }
