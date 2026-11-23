@@ -44,7 +44,7 @@ import org.apache.solr.client.solrj.cloud.autoscaling.NotEmptyException;
 import org.apache.solr.client.solrj.cloud.autoscaling.PolicyHelper;
 import org.apache.solr.client.solrj.cloud.autoscaling.VersionedData;
 import org.apache.solr.client.solrj.impl.ClusterStateProvider;
-import org.apache.solr.cloud.CausynthLegacyCloud;
+import org.apache.solr.cloud.CausymLegacyCloud;
 import org.apache.solr.cloud.Overseer;
 import org.apache.solr.cloud.RefreshCollectionMessage;
 import org.apache.solr.cloud.ZkController;
@@ -168,7 +168,7 @@ public class CreateCollectionCmd implements OverseerCollectionMessageHandler.Cmd
       final String async = message.getStr(ASYNC);
 
       ZkStateReader zkStateReader = ocmh.zkStateReader;
-      boolean isLegacyCloud = CausynthLegacyCloud.isLegacy(zkStateReader); // GraphChecker: legacyCloud through one field-backed value
+      boolean isLegacyCloud = CausymLegacyCloud.isLegacy(zkStateReader); // Causym: legacyCloud through one field-backed value
 
       OverseerCollectionMessageHandler.createConfNode(stateManager, configName, collectionName, isLegacyCloud);
 
