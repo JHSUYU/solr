@@ -83,7 +83,7 @@ import org.apache.solr.common.params.ModifiableSolrParams;
 import org.apache.solr.common.params.SolrParams;
 import org.apache.solr.common.util.ExecutorUtil;
 import org.apache.solr.common.util.IOUtils;
-import org.apache.solr.common.util.CausynthBounds;
+import org.apache.solr.common.util.CausymBounds;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.common.util.SolrNamedThreadFactory;
 import org.apache.solr.common.util.StrUtils;
@@ -353,22 +353,22 @@ public abstract class AbstractFullDistribZkTestBase extends AbstractDistribZkTes
       // NOTE: we are skipping creation of the chaos monkey by returning here
       cloudClient = controlClientCloud; // temporary - some code needs/uses
       // cloudClient
-      causynthRegisterServers();
+      causymRegisterServers();
       return;
     }
 
     initCloud();
 
     createJettys(numServers);
-    causynthRegisterServers();
+    causymRegisterServers();
   }
 
-  /** GraphChecker: the servers are up; an automatic cluster registers them and opens its window. */
-  private void causynthRegisterServers() {
-    if (CausynthBounds.automatic()) {
+  /** Causym: the servers are up; an automatic cluster registers them and opens its window. */
+  private void causymRegisterServers() {
+    if (CausymBounds.automatic()) {
       List<JettySolrRunner> servers = new ArrayList<>(jettys);
       servers.add(controlJetty);
-      CausynthSolrCluster.registerServers(servers, cloudClient);
+      CausymSolrCluster.registerServers(servers, cloudClient);
     }
   }
 
@@ -431,9 +431,9 @@ public abstract class AbstractFullDistribZkTestBase extends AbstractDistribZkTes
                              // expect sliceCount active shards, but no active replicas
                              SolrCloudTestCase.activeClusterShape(sliceCount, 0));
     
-    // GraphChecker: an automatic cluster's servers come up in turn, as a MiniSolrCloudCluster's do, so
-    // their ports (CausynthPorts) and names sort the way they were made in every run.
-    ExecutorService customThreadPool = CausynthBounds.automatic()
+    // Causym: an automatic cluster's servers come up in turn, as a MiniSolrCloudCluster's do, so
+    // their ports (CausymPorts) and names sort the way they were made in every run.
+    ExecutorService customThreadPool = CausymBounds.automatic()
         ? ExecutorUtil.newMDCAwareSingleThreadExecutor(new SolrNamedThreadFactory("closeThreadPool"))
         : ExecutorUtil.newMDCAwareCachedThreadPool(new SolrNamedThreadFactory("closeThreadPool"));
 
@@ -550,8 +550,8 @@ public abstract class AbstractFullDistribZkTestBase extends AbstractDistribZkTes
     
     ExecutorUtil.shutdownAndAwaitTermination(customThreadPool);
     
-    // GraphChecker: in turn too, so the replicas take their names in the same order in every run.
-    customThreadPool = CausynthBounds.automatic()
+    // Causym: in turn too, so the replicas take their names in the same order in every run.
+    customThreadPool = CausymBounds.automatic()
         ? ExecutorUtil.newMDCAwareSingleThreadExecutor(new SolrNamedThreadFactory("createReplicaRequests"))
         : ExecutorUtil.newMDCAwareCachedThreadPool(new SolrNamedThreadFactory("createReplicaRequests"));
     
@@ -571,7 +571,7 @@ public abstract class AbstractFullDistribZkTestBase extends AbstractDistribZkTes
    
     ExecutorUtil.shutdownAndAwaitTermination(customThreadPool);
     
-    customThreadPool = CausynthBounds.automatic()
+    customThreadPool = CausymBounds.automatic()
         ? ExecutorUtil.newMDCAwareSingleThreadExecutor(new SolrNamedThreadFactory("createPullReplicaRequests"))
         : ExecutorUtil.newMDCAwareCachedThreadPool(new SolrNamedThreadFactory("createPullReplicaRequests"));
     for (@SuppressWarnings({"rawtypes"})CollectionAdminRequest r : createPullReplicaRequests) {
@@ -1749,7 +1749,7 @@ public abstract class AbstractFullDistribZkTestBase extends AbstractDistribZkTes
   
   @Override
   protected void destroyServers() throws Exception {
-    if (CausynthBounds.automatic()) CausynthSolrCluster.shutdownServers();
+    if (CausymBounds.automatic()) CausymSolrCluster.shutdownServers();
     ExecutorService customThreadPool = ExecutorUtil.newMDCAwareCachedThreadPool(new SolrNamedThreadFactory("closeThreadPool"));
     
     customThreadPool.submit(() -> IOUtils.closeQuietly(commonCloudSolrClient));

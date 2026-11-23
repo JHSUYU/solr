@@ -112,7 +112,7 @@ public abstract class RoutedAliasUpdateProcessorTest extends SolrCloudTestCase {
     // Then we create a collection with the name of the eventual config.
     // We configure it, and ultimately delete the collection, leaving a modified config-set behind.
     // Later we create the "real" collections referencing this modified config-set.
-    // GraphChecker: the configSet is the cluster's _default copied in ZooKeeper, a trusted one: CREATE from
+    // Causym: the configSet is the cluster's _default copied in ZooKeeper, a trusted one: CREATE from
     // the trusted _default refuses an unauthenticated request in 8.11 ("Can't create a configset with an
     // unauthenticated request from a trusted baseConfigSet").
     new ZkConfigManager(cluster.getZkClient()).copyConfigDir("_default", configName);

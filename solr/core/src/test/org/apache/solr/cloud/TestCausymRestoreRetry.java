@@ -49,11 +49,11 @@ import org.slf4j.LoggerFactory;
  */
 @LuceneTestCase.Slow
 @LuceneTestCase.SuppressCodecs({"SimpleText"}) // a backup checks each file's footer checksum
-public class TestCausynthRestoreRetry extends SolrCloudTestCase {
+public class TestCausymRestoreRetry extends SolrCloudTestCase {
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
-  private static final String SOURCE = "causynthRestore-source";
-  private static final String TARGET = "causynthRestore-target";
-  private static final String BACKUP = "causynthRestore-backup";
+  private static final String SOURCE = "causymRestore-source";
+  private static final String TARGET = "causymRestore-target";
+  private static final String BACKUP = "causymRestore-backup";
   private static String location;
 
   @BeforeClass
@@ -63,7 +63,7 @@ public class TestCausynthRestoreRetry extends SolrCloudTestCase {
     configureCluster(2)
         .addConfig("conf", configset("cloud-minimal"))
         .configure();
-    location = createTempDir("causynthRestore").toAbsolutePath().toString();
+    location = createTempDir("causymRestore").toAbsolutePath().toString();
   }
 
   @AfterClass
