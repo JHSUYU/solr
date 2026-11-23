@@ -19,7 +19,7 @@ package org.apache.solr.common.util;
 import java.util.concurrent.TimeUnit;
 
 /**
- * The bounds of an automatic cluster: a cluster test run as a GraphChecker
+ * The bounds of an automatic cluster: a cluster test run as a Causym
  * workload as it is written ({@link #AUTOMATIC} set on its JVM), where no
  * bound sized for a native run expires -- a socket or a connect, a wait for
  * a cluster state, a wait for a request.  The recording runs on a JIT and
@@ -28,12 +28,12 @@ import java.util.concurrent.TimeUnit;
  * What the system itself expires (a routing rule, a commit's reservation)
  * reads its clock and is not a bound here.
  */
-public final class CausynthBounds {
-  public static final String AUTOMATIC = "causynth.cluster.automatic";
+public final class CausymBounds {
+  public static final String AUTOMATIC = "causym.cluster.automatic";
   /** Longer than any case runs: a bound that cannot expire. */
   public static final int NEVER_MS = (int) TimeUnit.HOURS.toMillis(6);
 
-  private CausynthBounds() {
+  private CausymBounds() {
   }
 
   public static boolean automatic() {
@@ -41,7 +41,7 @@ public final class CausynthBounds {
   }
 
   /**
-   * An automatic cluster a case asks to be ordered ({@code causynth.cluster.ordered}): a new
+   * An automatic cluster a case asks to be ordered ({@code causym.cluster.ordered}): a new
    * collection's cores are created one after another, in replica order, so each shard's first
    * replica is its leader in every run (created together, whichever core registered first led),
    * and the cloud client tries the leaders in node order, so a request that names an alias
@@ -49,7 +49,7 @@ public final class CausynthBounds {
    * alias view rejects the update was another one in each recording).
    */
   public static boolean ordered() {
-    return automatic() && Boolean.getBoolean("causynth.cluster.ordered");
+    return automatic() && Boolean.getBoolean("causym.cluster.ordered");
   }
 
   /** A bound: the native one, or {@code NEVER_MS} in an automatic cluster. */

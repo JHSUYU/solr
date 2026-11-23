@@ -50,13 +50,13 @@ import org.junit.Test;
  */
 @LuceneTestCase.Slow
 @LuceneTestCase.SuppressCodecs({"SimpleText"}) // a backup checks each file's footer checksum
-public class TestCausynthSnapshotBackup extends SolrCloudTestCase {
-  private static final String COLLECTION = "causynthSnapshot";
-  private static final String SNAPSHOT = "causynthSnapshot-M";
+public class TestCausymSnapshotBackup extends SolrCloudTestCase {
+  private static final String COLLECTION = "causymSnapshot";
+  private static final String SNAPSHOT = "causymSnapshot-M";
   private static String location;
 
   static {
-    // GraphChecker: replica states in the collection's state.json, as Solr 8.11 keeps them unless a
+    // Causym: replica states in the collection's state.json, as Solr 8.11 keeps them unless a
     // collection asks for per-replica states (which the test framework picks at random): a replica's
     // state change is then a version of the state every node's view re-points to, not a child node.
     System.setProperty("use.perreplica", "false");
@@ -69,7 +69,7 @@ public class TestCausynthSnapshotBackup extends SolrCloudTestCase {
     configureCluster(2)
         .addConfig("conf", configset("cloud-minimal"))
         .configure();
-    location = createTempDir("causynthSnapshot").toAbsolutePath().toString();
+    location = createTempDir("causymSnapshot").toAbsolutePath().toString();
   }
 
   @AfterClass
@@ -120,7 +120,7 @@ public class TestCausynthSnapshotBackup extends SolrCloudTestCase {
           && now.isActive(liveNodes);
     });
 
-    CollectionAdminRequest.backupCollection(COLLECTION, "causynthSnapshot-backup")
+    CollectionAdminRequest.backupCollection(COLLECTION, "causymSnapshot-backup")
         .setLocation(location).setCommitName(SNAPSHOT).setIncremental(false)
         .process(client);
   }

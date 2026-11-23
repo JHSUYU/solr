@@ -28,7 +28,7 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-import edu.uva.liftlab.graphchecker.annotation.CausynthExceptionTarget;
+import edu.uva.liftlab.causym.annotation.CausymExceptionTarget;
 import org.apache.solr.cloud.Overseer;
 import org.apache.solr.common.NonExistentCoreException;
 import org.apache.solr.common.SolrException;
@@ -243,7 +243,7 @@ public class DeleteCollectionCmd implements OverseerCollectionMessageHandler.Cmd
           // for back-compat in 8.x we don't automatically remove other
           // aliases that point only to this collection
           if (!extCollection.equals(alias)) {
-            throw new @CausynthExceptionTarget("solr-bugs-reindex-cleanup") SolrException(SolrException.ErrorCode.BAD_REQUEST,
+            throw new @CausymExceptionTarget("solr-bugs-reindex-cleanup") SolrException(SolrException.ErrorCode.BAD_REQUEST,
                 "Collection : " + collection + " is part of aliases: " + aliasesRefs + ", remove or modify the aliases before removing this collection.");
           } else {
             aliasesToDelete.add(alias);
