@@ -220,7 +220,7 @@ public class SliceMutator {
     String routeKey = message.getStr("routeKey");
     String range = message.getStr("range");
     String targetCollection = message.getStr("targetCollection");
-    // GraphChecker: the expiry crosses two stores as a long -- parsed from the
+    // Causym: the expiry crosses two stores as a long -- parsed from the
     // queue's message, written again into the collection's state.
     String expireAt = String.valueOf(Long.parseLong(message.getStr("expireAt")));
 
