@@ -55,8 +55,8 @@ import org.apache.solr.common.SolrException.ErrorCode;
 import org.apache.solr.common.params.AutoScalingParams;
 import org.apache.solr.common.params.CollectionAdminParams;
 import org.apache.solr.common.params.CoreAdminParams;
-import edu.uva.liftlab.graphchecker.runtime.MessageDoors;
-import org.apache.solr.common.util.CausynthBounds;
+import edu.uva.liftlab.causym.runtime.MessageDoors;
+import org.apache.solr.common.util.CausymBounds;
 import org.apache.solr.common.util.ExecutorUtil;
 import org.apache.solr.common.util.ObjectReleaseTracker;
 import org.apache.solr.common.util.Pair;
@@ -198,7 +198,7 @@ public class ZkStateReader implements SolrCloseable {
    */
   private final ConcurrentHashMap<String, LazyCollectionRef> lazyCollectionStates = new ConcurrentHashMap<>();
 
-  // GraphChecker: one refresh of a collection at a time, from its fetch to
+  // Causym: one refresh of a collection at a time, from its fetch to
   // its apply (StateWatcher#refreshAndWatch).  Two watch events of one
   // collection run on two zkCallback threads: a refresh that fetched
   // state.json just before the collection was deleted, and applied it just
@@ -206,7 +206,7 @@ public class ZkStateReader implements SolrCloseable {
   // watchedCollectionStates (updateWatchedCollection adds a fetched state
   // when none is held), and no later event removes it -- the node is gone.
   // A waitForState for the deletion (DeleteCollectionCmd) then waits forever
-  // in an automatic cluster (CausynthBounds), and times out after 60 s
+  // in an automatic cluster (CausymBounds), and times out after 60 s
   // natively.  Serialized, the last fetch is the last apply.
   private final ConcurrentHashMap<String, Object> collectionRefreshLocks = new ConcurrentHashMap<>();
 
@@ -417,9 +417,9 @@ public class ZkStateReader implements SolrCloseable {
    * @lucene.internal
    */
   public void forciblyRefreshAllClusterStateSlow() throws KeeperException, InterruptedException {
-    // GraphChecker: the system's own refresh reads the store as it stands, so no pairing's hold of a
+    // Causym: the system's own refresh reads the store as it stands, so no pairing's hold of a
     // view waits on its decodes (MessageDoors#refreshStarting).
-    long causynthRefresh = MessageDoors.refreshStarting();
+    long causymRefresh = MessageDoors.refreshStarting();
     try {
       synchronized (getUpdateLock()) {
         if (clusterState == null) {
@@ -443,7 +443,7 @@ public class ZkStateReader implements SolrCloseable {
         constructState(updatedCollections);
       }
     } finally {
-      MessageDoors.refreshEnded(causynthRefresh);
+      MessageDoors.refreshEnded(causymRefresh);
     }
   }
 
@@ -453,9 +453,9 @@ public class ZkStateReader implements SolrCloseable {
    */
   //TODO shouldn't we call ZooKeeper.sync() at the right places to prevent reading a stale value?  We do so for aliases.
   public void forceUpdateCollection(String collection) throws KeeperException, InterruptedException {
-    // GraphChecker: the system's own refresh reads the store as it stands, so no pairing's hold of a
+    // Causym: the system's own refresh reads the store as it stands, so no pairing's hold of a
     // view waits on its decodes (MessageDoors#refreshStarting).
-    long causynthRefresh = MessageDoors.refreshStarting();
+    long causymRefresh = MessageDoors.refreshStarting();
     try {
       synchronized (getUpdateLock()) {
         if (clusterState == null) {
@@ -499,7 +499,7 @@ public class ZkStateReader implements SolrCloseable {
       }
 
     } finally {
-      MessageDoors.refreshEnded(causynthRefresh);
+      MessageDoors.refreshEnded(causymRefresh);
     }
   }
 
@@ -682,7 +682,7 @@ public class ZkStateReader implements SolrCloseable {
     try {
       final Stat stat = new Stat();
       final byte[] data = zkClient.getData(CLUSTER_STATE, watcher, stat, true);
-      final ClusterState loadedData = causynthDecoded(CLUSTER_STATE, stat.getVersion(),
+      final ClusterState loadedData = causymDecoded(CLUSTER_STATE, stat.getVersion(),
           ClusterState.load(stat.getVersion(), data, emptySet(), CLUSTER_STATE, null));
       synchronized (getUpdateLock()) {
         if (this.legacyClusterStateVersion >= stat.getVersion()) {
@@ -834,9 +834,9 @@ public class ZkStateReader implements SolrCloseable {
 
     @Override
     public synchronized DocCollection get(boolean allowCached) {
-      // GraphChecker: a lazy collection's fetch reads the store as it stands, so no pairing's hold of
+      // Causym: a lazy collection's fetch reads the store as it stands, so no pairing's hold of
       // the view waits on its decode (MessageDoors#refreshStarting).
-      long causynthRefresh = MessageDoors.refreshStarting();
+      long causymRefresh = MessageDoors.refreshStarting();
       try {
         gets.incrementAndGet();
         if (!allowCached || lastUpdateTime < 0 || System.nanoTime() - lastUpdateTime > LAZY_CACHE_TIME) {
@@ -858,7 +858,7 @@ public class ZkStateReader implements SolrCloseable {
         }
         return cachedDocCollection;
       } finally {
-        MessageDoors.refreshEnded(causynthRefresh);
+        MessageDoors.refreshEnded(causymRefresh);
       }
     }
 
@@ -1402,14 +1402,14 @@ public class ZkStateReader implements SolrCloseable {
 
     }
     public void refreshAndWatch() {
-      // GraphChecker: no event's entry -- registering a core or a collection watch, which reads its
+      // Causym: no event's entry -- registering a core or a collection watch, which reads its
       // clusterState right after on the same thread -- is the system's own refresh, so no pairing's
       // hold defers what it publishes, even inside a watch callback (MessageDoors#refreshStarting).
-      long causynthRefresh = MessageDoors.refreshStarting();
+      long causymRefresh = MessageDoors.refreshStarting();
       try {
         refreshAndWatch(null);
       } finally {
-        MessageDoors.refreshEnded(causynthRefresh);
+        MessageDoors.refreshEnded(causymRefresh);
       }
     }
 
@@ -1454,10 +1454,10 @@ public class ZkStateReader implements SolrCloseable {
         synchronized (collectionRefreshLock(coll)) {
           replicaStates = zkClient.getChildren(collectionPath, this, stat, true);
           PerReplicaStates newStates = new PerReplicaStates(collectionPath, stat.getCversion(), replicaStates);
-          // GraphChecker: per-replica states are no new version of state.json: behind a deferred
+          // Causym: per-replica states are no new version of state.json: behind a deferred
           // publication of the collection they follow it (MessageDoors#publishing, version -2), and
           // apply onto the state then published, never onto the one held when they were read.
-          if (MessageDoors.publishing(SolrZkClient.CAUSYNTH_ZK, collectionPath, -2L, () -> {
+          if (MessageDoors.publishing(SolrZkClient.CAUSYM_ZK, collectionPath, -2L, () -> {
                 boolean changed;
                 synchronized (collectionRefreshLock(coll)) {
                   DocCollection current = watchedCollectionStates.get(coll);
@@ -1708,7 +1708,7 @@ public class ZkStateReader implements SolrCloseable {
       try {
         Stat stat = new Stat();
         byte[] data = zkClient.getData(collectionPath, watcher, stat, true);
-        ClusterState state = causynthDecoded(collectionPath, stat.getVersion(),
+        ClusterState state = causymDecoded(collectionPath, stat.getVersion(),
             ClusterState.load (stat.getVersion(), data,
             Collections.emptySet(), collectionPath, new PerReplicaStates.LazyPrsSupplier(zkClient, collectionPath)));
         ClusterState.CollectionRef collectionRef = state.getCollectionStates().get(coll);
@@ -1729,12 +1729,12 @@ public class ZkStateReader implements SolrCloseable {
   }
 
   /**
-   * GraphChecker: the objects a fetch of {@code path} at {@code version} was
+   * Causym: the objects a fetch of {@code path} at {@code version} was
    * parsed into hold that version of the store (MessageDoors#decoded), so a
    * guard reading one reads the version, whichever thread later reads it.
    */
-  private static <T> T causynthDecoded(String path, int version, T product) {
-    MessageDoors.decoded(SolrZkClient.CAUSYNTH_ZK, path + "@" + version, product);
+  private static <T> T causymDecoded(String path, int version, T product) {
+    MessageDoors.decoded(SolrZkClient.CAUSYM_ZK, path + "@" + version, product);
     return product;
   }
 
@@ -1931,7 +1931,7 @@ public class ZkStateReader implements SolrCloseable {
 
     try {
       // wait for the watcher predicate to return true, or time out
-      if (!latch.await(CausynthBounds.of(wait, unit), unit))
+      if (!latch.await(CausymBounds.of(wait, unit), unit))
         throw new TimeoutException("Timeout waiting to see state for collection=" + collection + " :" + docCollection.get());
 
     } finally {
@@ -1990,7 +1990,7 @@ public class ZkStateReader implements SolrCloseable {
 
     try {
       // wait for the watcher predicate to return true, or time out
-      if (!latch.await(CausynthBounds.of(wait, unit), unit))
+      if (!latch.await(CausymBounds.of(wait, unit), unit))
         throw new TimeoutException(
             "Timeout waiting to see state for collection="
                 + collection
@@ -2040,7 +2040,7 @@ public class ZkStateReader implements SolrCloseable {
 
     try {
       // wait for the watcher predicate to return true, or time out
-      if (!latch.await(CausynthBounds.of(wait, unit), unit))
+      if (!latch.await(CausymBounds.of(wait, unit), unit))
         throw new TimeoutException("Timeout waiting for live nodes, currently they are: " + getClusterState().getLiveNodes());
 
     } finally {
@@ -2115,7 +2115,7 @@ public class ZkStateReader implements SolrCloseable {
 
   // returns true if the state has changed
   //
-  // GraphChecker: this node is about to publish a collection's state to its readers.  On a thread
+  // Causym: this node is about to publish a collection's state to its readers.  On a thread
   // delivering a store notification, a pairing's hold of this node's view of the collection may defer
   // the publication, and a deferred one holds every later one of the collection behind it, a removal
   // (version -1) and a recreated collection's included (MessageDoors#publishing): the thread goes on,
@@ -2125,7 +2125,7 @@ public class ZkStateReader implements SolrCloseable {
   // version, per-replica cversion) keeps the newest: a later synchronous refresh is never regressed
   // by a deferred one, and it drops the deferred removals and what came before them.
   private boolean updateWatchedCollection(String coll, DocCollection newState) {
-    if (MessageDoors.publishing(SolrZkClient.CAUSYNTH_ZK, getCollectionPath(coll),
+    if (MessageDoors.publishing(SolrZkClient.CAUSYM_ZK, getCollectionPath(coll),
         newState == null ? -1L : newState.getZNodeVersion(), () -> {
           boolean changed;
           synchronized (collectionRefreshLock(coll)) {
@@ -2330,9 +2330,9 @@ public class ZkStateReader implements SolrCloseable {
 
     public Aliases getAliases() {
       Aliases held = aliases; // volatile read
-      // GraphChecker: what a caller holds from here is this node's view of the aliases, the version
+      // Causym: what a caller holds from here is this node's view of the aliases, the version
       // the decode it came from made (MessageDoors#viewed).
-      MessageDoors.viewed(SolrZkClient.CAUSYNTH_ZK, ALIASES, held);
+      MessageDoors.viewed(SolrZkClient.CAUSYM_ZK, ALIASES, held);
       return held;
     }
 
@@ -2370,7 +2370,7 @@ public class ZkStateReader implements SolrCloseable {
         try {
           try {
             final Stat stat = getZkClient().setData(ALIASES, modAliasesJson, curAliases.getZNodeVersion(), true);
-            setIfNewer(causynthDecoded(ALIASES, stat.getVersion(), Aliases.fromJSON(modAliasesJson, stat.getVersion())));
+            setIfNewer(causymDecoded(ALIASES, stat.getVersion(), Aliases.fromJSON(modAliasesJson, stat.getVersion())));
             return;
           } catch (KeeperException.BadVersionException e) {
             log.debug("{}", e, e);
@@ -2402,19 +2402,19 @@ public class ZkStateReader implements SolrCloseable {
      * @return true if an update was performed
      */
     public boolean update() throws KeeperException, InterruptedException {
-      // GraphChecker: a caller's own refresh of the aliases (it reads them right after, on its thread),
+      // Causym: a caller's own refresh of the aliases (it reads them right after, on its thread),
       // so no pairing's hold defers what it publishes, even inside a watch callback
       // (MessageDoors#refreshStarting).
-      long causynthRefresh = MessageDoors.refreshStarting();
+      long causymRefresh = MessageDoors.refreshStarting();
       try {
         log.debug("Checking ZK for most up to date Aliases {}", ALIASES);
         // Call sync() first to ensure the subsequent read (getData) is up to date.
         zkClient.getSolrZooKeeper().sync(ALIASES, null, null);
         Stat stat = new Stat();
         final byte[] data = zkClient.getData(ALIASES, null, stat, true);
-        return setIfNewer(causynthDecoded(ALIASES, stat.getVersion(), Aliases.fromJSON(data, stat.getVersion())));
+        return setIfNewer(causymDecoded(ALIASES, stat.getVersion(), Aliases.fromJSON(data, stat.getVersion())));
       } finally {
-        MessageDoors.refreshEnded(causynthRefresh);
+        MessageDoors.refreshEnded(causymRefresh);
       }
     }
 
@@ -2432,7 +2432,7 @@ public class ZkStateReader implements SolrCloseable {
         Stat stat = new Stat();
         final byte[] data = zkClient.getData(ALIASES, this, stat, true);
         // note: it'd be nice to avoid possibly needlessly parsing if we don't update aliases but not a big deal
-        setIfNewer(causynthDecoded(ALIASES, stat.getVersion(), Aliases.fromJSON(data, stat.getVersion())));
+        setIfNewer(causymDecoded(ALIASES, stat.getVersion(), Aliases.fromJSON(data, stat.getVersion())));
       } catch (NoNodeException e) {
         // /aliases.json will not always exist
       } catch (KeeperException.ConnectionLossException | KeeperException.SessionExpiredException e) {
@@ -2455,9 +2455,9 @@ public class ZkStateReader implements SolrCloseable {
      * @return true if aliases have been updated to a new version, false otherwise
      */
     private boolean setIfNewer(Aliases newAliases) {
-      // GraphChecker: this node is about to publish its aliases; a pairing's hold of its view may
+      // Causym: this node is about to publish its aliases; a pairing's hold of its view may
       // defer it on a notification's thread (MessageDoors#publishing, as updateWatchedCollection).
-      if (MessageDoors.publishing(SolrZkClient.CAUSYNTH_ZK, ALIASES, newAliases.getZNodeVersion(),
+      if (MessageDoors.publishing(SolrZkClient.CAUSYM_ZK, ALIASES, newAliases.getZNodeVersion(),
           () -> publishIfNewer(newAliases))) {
         return false;
       }
@@ -2526,9 +2526,9 @@ public class ZkStateReader implements SolrCloseable {
     public void run() {
       while (!Thread.interrupted()) {
         try {
-          // GraphChecker: in an automatic cluster the cleaner never wakes, as in a recording
+          // Causym: in an automatic cluster the cleaner never wakes, as in a recording
           // shorter than its period (a replay many times slower woke it dozens of times).
-          Thread.sleep(CausynthBounds.of(60000, TimeUnit.MILLISECONDS));
+          Thread.sleep(CausymBounds.of(60000, TimeUnit.MILLISECONDS));
         } catch (InterruptedException e) {
           // Executor shutdown will send us an interrupt
           break;
