@@ -34,7 +34,7 @@ import org.slf4j.LoggerFactory;
 /**
  * The workload of a time routed alias whose first document lies past its head
  * collection's range, so the routing node creates the next collection
- * synchronously (from TestCausynthTraStartAlias, in the bug-check style: the
+ * synchronously (from TestCausymTraStartAlias, in the bug-check style: the
  * add's failure returned).
  *
  * <p>The routed alias starts on a fixed day, 2019-09-14, with one collection
@@ -61,7 +61,7 @@ import org.slf4j.LoggerFactory;
  * live in the collection's state.json (use.perreplica false).</p>
  */
 @LuceneTestCase.Slow
-public class TestCausynthTraSyncCreate extends SolrCloudTestCase {
+public class TestCausymTraSyncCreate extends SolrCloudTestCase {
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
   private static final String ROUTED = "t";
   private static final String START = "2019-09-14T00:00:00Z";
@@ -71,7 +71,7 @@ public class TestCausynthTraSyncCreate extends SolrCloudTestCase {
   private static final String PLAIN = "b";
 
   static {
-    // GraphChecker: replica states in the collection's state.json, as Solr 8.11 keeps them unless a
+    // Causym: replica states in the collection's state.json, as Solr 8.11 keeps them unless a
     // collection asks for per-replica states (which the test framework picks at random).
     System.setProperty("use.perreplica", "false");
   }

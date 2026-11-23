@@ -29,7 +29,7 @@ import org.apache.solr.BaseDistributedSearchTestCase;
 import org.apache.solr.client.solrj.embedded.JettySolrRunner;
 import org.apache.solr.client.solrj.impl.CloudSolrClient;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
-import org.apache.solr.common.util.CausynthBounds;
+import org.apache.solr.common.util.CausymBounds;
 import org.apache.solr.common.cloud.ClusterState;
 import org.apache.solr.common.cloud.DocCollection;
 import org.apache.solr.common.cloud.Replica;
@@ -72,8 +72,8 @@ public abstract class AbstractDistribZkTestBase extends BaseDistributedSearchTes
 
     Path zkDir = testDir.toPath().resolve("zookeeper/server1/data");
     zkServer = new ZkTestServer(zkDir);
-    // GraphChecker: an automatic cluster's servers expire no native bound (sockets, sessions).
-    if (CausynthBounds.automatic()) CausynthSolrCluster.configure(zkServer);
+    // Causym: an automatic cluster's servers expire no native bound (sockets, sessions).
+    if (CausymBounds.automatic()) CausymSolrCluster.configure(zkServer);
     zkServer.run();
 
     System.setProperty(ZK_HOST, zkServer.getZkAddress());

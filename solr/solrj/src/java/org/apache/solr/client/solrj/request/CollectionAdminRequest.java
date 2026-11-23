@@ -57,7 +57,7 @@ import org.apache.solr.common.params.ModifiableSolrParams;
 import org.apache.solr.common.params.ShardParams;
 import org.apache.solr.common.params.SolrParams;
 import org.apache.solr.common.params.V2ApiParams;
-import org.apache.solr.common.util.CausynthBounds;
+import org.apache.solr.common.util.CausymBounds;
 import org.apache.solr.common.util.NamedList;
 
 import static org.apache.solr.client.solrj.cloud.autoscaling.Policy.POLICY;
@@ -1698,7 +1698,7 @@ public abstract class CollectionAdminRequest<T extends CollectionAdminResponse> 
     public RequestStatusState waitFor(SolrClient client, long timeoutSeconds)
         throws IOException, SolrServerException, InterruptedException {
       long finishTime = System.nanoTime()
-          + TimeUnit.SECONDS.toNanos(CausynthBounds.of(timeoutSeconds, TimeUnit.SECONDS));
+          + TimeUnit.SECONDS.toNanos(CausymBounds.of(timeoutSeconds, TimeUnit.SECONDS));
       RequestStatusState state = RequestStatusState.NOT_FOUND;
       while (System.nanoTime() < finishTime) {
         state = this.process(client).getRequestStatus();

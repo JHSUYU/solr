@@ -49,7 +49,7 @@ import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.common.cloud.Aliases;
 import org.apache.solr.common.cloud.ZkStateReader;
 import org.apache.solr.common.params.ModifiableSolrParams;
-import org.apache.solr.common.util.CausynthBounds;
+import org.apache.solr.common.util.CausymBounds;
 import org.apache.solr.common.util.ExecutorUtil;
 import org.apache.solr.common.util.Utils;
 import org.apache.solr.update.UpdateCommand;
@@ -301,10 +301,10 @@ public class TimeRoutedAliasUpdateProcessorTest extends RoutedAliasUpdateProcess
 
     addOneDocSynchCreation(numShards, alias);
     addOneDocSynchCreation(numShards, alias2);
-    // GraphChecker: as a workload (solr-adhoc-13, its declared occurrence the first synchronous
+    // Causym: as a workload (solr-adhoc-13, its declared occurrence the first synchronous
     // creation above) the test ends here; the preemptive phase below is past every target and
     // its concolic replay alone exceeded the seed bound.
-    if (CausynthBounds.automatic()) {
+    if (CausymBounds.automatic()) {
       return;
     }
 
