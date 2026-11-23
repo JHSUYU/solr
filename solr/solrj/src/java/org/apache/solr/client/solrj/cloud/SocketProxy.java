@@ -50,8 +50,8 @@ public class SocketProxy {
   public static final int ACCEPT_TIMEOUT_MILLIS = 100;
 
   // should be as large as the HttpShardHandlerFactory socket timeout ... or larger?
-  // GraphChecker: none in an automatic cluster (CausynthBounds), whose replays run many times slower.
-  public static final int PUMP_SOCKET_TIMEOUT_MS = org.apache.solr.common.util.CausynthBounds.millis(100 * 1000);
+  // Causym: none in an automatic cluster (CausymBounds), whose replays run many times slower.
+  public static final int PUMP_SOCKET_TIMEOUT_MS = org.apache.solr.common.util.CausymBounds.millis(100 * 1000);
   
   private URI proxyUrl;
   private URI target;
