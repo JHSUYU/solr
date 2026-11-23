@@ -17,7 +17,7 @@
 
 package org.apache.solr.update.processor;
 
-import edu.uva.liftlab.graphchecker.annotation.CausynthExceptionTarget;
+import edu.uva.liftlab.causym.annotation.CausymExceptionTarget;
 
 import java.io.IOException;
 import java.lang.invoke.MethodHandles;
@@ -235,7 +235,7 @@ public class DistributedZkUpdateProcessor extends DistributedUpdateProcessor {
     assert TestInjection.injectFailUpdateRequests();
 
     if (isReadOnly()) {
-      throw new @CausynthExceptionTarget("solr-bugs-overseer-lock-leak") SolrException(ErrorCode.FORBIDDEN, "Collection " + collection + " is read-only.");
+      throw new @CausymExceptionTarget("solr-bugs-overseer-lock-leak") SolrException(ErrorCode.FORBIDDEN, "Collection " + collection + " is read-only.");
     }
 
     setupRequest(cmd);
@@ -931,7 +931,7 @@ public class DistributedZkUpdateProcessor extends DistributedUpdateProcessor {
                     // ClusterState.getCollection, spelled out so the fatal site is this lookup's own.
                     DocCollection targetColl = cstate.getCollectionOrNull(rule.getTargetCollectionName());
                     if (targetColl == null) {
-                      throw new @CausynthExceptionTarget("solr-18413") SolrException(
+                      throw new @CausymExceptionTarget("solr-18413") SolrException(
                           SolrException.ErrorCode.BAD_REQUEST,
                           "Could not find collection : " + rule.getTargetCollectionName());
                     }
@@ -1028,7 +1028,7 @@ public class DistributedZkUpdateProcessor extends DistributedUpdateProcessor {
 
     if ((isLeader && !localIsLeader) || (isSubShardLeader && !localIsLeader)) {
       log.error("ClusterState says we are the leader, but locally we don't think so");
-      throw new @CausynthExceptionTarget("solr-adhoc-38") SolrException(SolrException.ErrorCode.SERVICE_UNAVAILABLE,
+      throw new @CausymExceptionTarget("solr-adhoc-38") SolrException(SolrException.ErrorCode.SERVICE_UNAVAILABLE,
           "ClusterState says we are the leader (" + zkController.getBaseUrl()
               + "/" + req.getCore().getName() + "), but locally we don't think so. Request came from " + from);
     }

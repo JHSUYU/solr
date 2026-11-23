@@ -19,14 +19,14 @@ package org.apache.solr.client.solrj.impl;
 import org.apache.http.client.HttpClient;
 import org.apache.solr.client.solrj.ResponseParser;
 import org.apache.solr.client.solrj.impl.HttpSolrClient.Builder;
-import org.apache.solr.common.util.CausynthBounds;
+import org.apache.solr.common.util.CausymBounds;
 
 public abstract class SolrClientBuilder<B extends SolrClientBuilder<B>> {
 
   protected HttpClient httpClient;
   protected ResponseParser responseParser;
-  protected Integer connectionTimeoutMillis = CausynthBounds.millis(15000);
-  protected Integer socketTimeoutMillis = CausynthBounds.millis(120000);
+  protected Integer connectionTimeoutMillis = CausymBounds.millis(15000);
+  protected Integer socketTimeoutMillis = CausymBounds.millis(120000);
 
   /** The solution for the unchecked cast warning. */
   public abstract B getThis();
@@ -58,8 +58,8 @@ public abstract class SolrClientBuilder<B extends SolrClientBuilder<B>> {
       throw new IllegalArgumentException("connectionTimeoutMillis must be a non-negative integer.");
     }
     
-    // GraphChecker: a bound sized for a native run never expires in an automatic cluster.
-    this.connectionTimeoutMillis = CausynthBounds.millis(connectionTimeoutMillis);
+    // Causym: a bound sized for a native run never expires in an automatic cluster.
+    this.connectionTimeoutMillis = CausymBounds.millis(connectionTimeoutMillis);
     return getThis();
   }
   
@@ -74,8 +74,8 @@ public abstract class SolrClientBuilder<B extends SolrClientBuilder<B>> {
       throw new IllegalArgumentException("socketTimeoutMillis must be a non-negative integer.");
     }
     
-    // GraphChecker: a bound sized for a native run never expires in an automatic cluster.
-    this.socketTimeoutMillis = CausynthBounds.millis(socketTimeoutMillis);
+    // Causym: a bound sized for a native run never expires in an automatic cluster.
+    this.socketTimeoutMillis = CausymBounds.millis(socketTimeoutMillis);
     return getThis();
   }
 }

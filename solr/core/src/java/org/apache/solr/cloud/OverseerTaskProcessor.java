@@ -16,7 +16,7 @@
  */
 package org.apache.solr.cloud;
 
-import edu.uva.liftlab.graphchecker.runtime.MessageDoors;
+import edu.uva.liftlab.causym.runtime.MessageDoors;
 
 import java.io.Closeable;
 import java.lang.invoke.MethodHandles;
@@ -280,12 +280,12 @@ public class OverseerTaskProcessor implements Runnable, Closeable {
             synchronized (runningZKTasks) {
               if (runningZKTasks.contains(head.getId())) continue;
             }
-            // GraphChecker: each task the loop takes is a turn of the Overseer
+            // Causym: each task the loop takes is a turn of the Overseer
             // of its own, serving the task's queue item, so what it decides --
             // markTaskAsRunning's ZooKeeper write door -- is an occurrence's.
-            long causynthTick = MessageDoors.beginTick(zkStateReader, "OVERSEER_TASK_QUEUE");
+            long causymTick = MessageDoors.beginTick(zkStateReader, "OVERSEER_TASK_QUEUE");
             try {
-            MessageDoors.consumed(SolrZkClient.CAUSYNTH_ZK, head.getId() + "@0");
+            MessageDoors.consumed(SolrZkClient.CAUSYM_ZK, head.getId() + "@0");
             final ZkNodeProps message = ZkNodeProps.load(head.getBytes());
             final String asyncId = message.getStr(ASYNC);
             if (hasLeftOverItems) {
@@ -337,7 +337,7 @@ public class OverseerTaskProcessor implements Runnable, Closeable {
                 operation, head, lock);
             tpe.execute(runner);
             } finally {
-              MessageDoors.endTick(causynthTick);
+              MessageDoors.endTick(causymTick);
             }
           }
 
@@ -520,16 +520,16 @@ public class OverseerTaskProcessor implements Runnable, Closeable {
 
 
     public void run() {
-      // GraphChecker: one collection-API task is one turn of the Overseer.
+      // Causym: one collection-API task is one turn of the Overseer.
       // Owned by the Overseer's node: its thread started before the node was
       // registered, so the thread alone names no node.
-      long causynthTick = MessageDoors.beginTick(zkStateReader, "OVERSEER_TASK");
+      long causymTick = MessageDoors.beginTick(zkStateReader, "OVERSEER_TASK");
       try {
-        // GraphChecker: the task's queue item is the message this turn serves.
-        MessageDoors.consumed(SolrZkClient.CAUSYNTH_ZK, head.getId() + "@0");
+        // Causym: the task's queue item is the message this turn serves.
+        MessageDoors.consumed(SolrZkClient.CAUSYM_ZK, head.getId() + "@0");
         runTask();
       } finally {
-        MessageDoors.endTick(causynthTick);
+        MessageDoors.endTick(causymTick);
       }
     }
 
