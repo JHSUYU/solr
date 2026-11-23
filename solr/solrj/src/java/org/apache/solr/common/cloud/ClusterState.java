@@ -73,7 +73,7 @@ public class ClusterState implements JSONWriter.Writable {
    */
   public ClusterState(Set<String> liveNodes, Map<String, CollectionRef> collectionStates, Integer znodeVersion){
     this.znodeVersion = znodeVersion;
-    // GraphChecker: in name order, as ZkStateReader keeps them.  A node's name
+    // Causym: in name order, as ZkStateReader keeps them.  A node's name
     // holds its port, so a hash set's order (which node a client's admin
     // request goes to first) was the ports', a run's own.
     this.liveNodes = new TreeSet<>(liveNodes);

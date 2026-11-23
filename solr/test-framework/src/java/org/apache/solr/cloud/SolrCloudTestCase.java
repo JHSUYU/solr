@@ -54,7 +54,7 @@ import org.apache.solr.common.cloud.Slice;
 import org.apache.solr.common.cloud.SolrZkClient;
 import org.apache.solr.common.cloud.ZkStateReader;
 import org.apache.solr.common.params.CollectionAdminParams;
-import org.apache.solr.common.util.CausynthBounds;
+import org.apache.solr.common.util.CausymBounds;
 import org.apache.solr.common.util.NamedList;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -82,15 +82,15 @@ import org.slf4j.LoggerFactory;
  */
 public class SolrCloudTestCase extends SolrTestCaseJ4 {
 
-  /** GraphChecker: the test method runs under a request of its own. */
+  /** Causym: the test method runs under a request of its own. */
   @org.junit.Before
-  public void causynthBeginTest() {
-    if (CausynthBounds.automatic()) CausynthSolrCluster.beginTest();
+  public void causymBeginTest() {
+    if (CausymBounds.automatic()) CausymSolrCluster.beginTest();
   }
 
   @org.junit.After
-  public void causynthEndTest() {
-    if (CausynthBounds.automatic()) CausynthSolrCluster.endTest();
+  public void causymEndTest() {
+    if (CausymBounds.automatic()) CausymSolrCluster.endTest();
   }
 
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());

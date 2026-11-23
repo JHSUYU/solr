@@ -56,9 +56,9 @@ import org.junit.Test;
  * once every node's view of the collection is writable again.</p>
  */
 @LuceneTestCase.Slow
-public class TestCausynthOverseerLockLeak extends SolrCloudTestCase {
-  private static final String COLLECTION = "causynthLock";
-  private static final String REQUEST = "causynthLock-writable";
+public class TestCausymOverseerLockLeak extends SolrCloudTestCase {
+  private static final String COLLECTION = "causymLock";
+  private static final String REQUEST = "causymLock-writable";
   private static final int STATUS_POLLS = 150;
 
   @BeforeClass
