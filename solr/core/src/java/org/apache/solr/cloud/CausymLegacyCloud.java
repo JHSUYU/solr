@@ -20,12 +20,12 @@ import org.apache.solr.client.solrj.impl.ClusterStateProvider;
 import org.apache.solr.common.cloud.ZkStateReader;
 
 /**
- * GraphChecker: every read of the cluster property legacyCloud goes through one
+ * Causym: every read of the cluster property legacyCloud goes through one
  * field-backed value.  Each call reads the property exactly as
  * {@link Overseer#isLegacy} does, at the same moment, stores the answer in the
  * field of a fresh holder and returns that field: the same value, nothing shared
  * between calls, no ordering added.  A configuration a field holds is written by
- * GraphChecker at every read of that field, in every thread of the JVM (a
+ * Causym at every read of that field, in every thread of the JVM (a
  * MiniSolrCloudCluster runs every node in one JVM, so on the node and on the
  * Overseer alike), where the return of a getter such as {@code isLegacy} is planted
  * only inside an occurrence that mints it.  Callers on the node (CoreContainer,
@@ -33,20 +33,20 @@ import org.apache.solr.common.cloud.ZkStateReader;
  * OverseerCollectionMessageHandler, ReplicaMutator) call this instead of
  * {@code Overseer.isLegacy}.
  */
-public final class CausynthLegacyCloud {
+public final class CausymLegacyCloud {
   private boolean legacyCloud;
 
-  private CausynthLegacyCloud() {
+  private CausymLegacyCloud() {
   }
 
   public static boolean isLegacy(ZkStateReader stateReader) {
-    CausynthLegacyCloud read = new CausynthLegacyCloud();
+    CausymLegacyCloud read = new CausymLegacyCloud();
     read.legacyCloud = Overseer.isLegacy(stateReader);
     return read.legacyCloud;
   }
 
   public static boolean isLegacy(ClusterStateProvider clusterStateProvider) {
-    CausynthLegacyCloud read = new CausynthLegacyCloud();
+    CausymLegacyCloud read = new CausymLegacyCloud();
     read.legacyCloud = Overseer.isLegacy(clusterStateProvider);
     return read.legacyCloud;
   }

@@ -39,7 +39,7 @@ import org.apache.solr.common.SolrException;
 import org.apache.solr.common.params.SolrParams;
 import org.apache.solr.common.params.UpdateParams;
 import org.apache.solr.common.util.ExecutorUtil;
-import org.apache.solr.common.util.CausynthHttp;
+import org.apache.solr.common.util.CausymHttp;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.common.util.SolrNamedThreadFactory;
 import org.eclipse.jetty.client.api.Response;
@@ -216,7 +216,7 @@ public class ConcurrentUpdateHttp2SolrClient extends SolrClient {
       try {
         while (!queue.isEmpty()) {
           InputStream rspBody = null;
-          long causynthRequest = 0L;
+          long causymRequest = 0L;
           try {
             Update update;
             notifyQueueAndRunnersIfEmptyQueue();
@@ -225,8 +225,8 @@ public class ConcurrentUpdateHttp2SolrClient extends SolrClient {
             if (update == null) {
               break;
             }
-            // GraphChecker: one stream is one request, started here.
-            causynthRequest = CausynthHttp.requestStarting(update.getRequest());
+            // Causym: one stream is one request, started here.
+            causymRequest = CausymHttp.requestStarting(update.getRequest());
 
             InputStreamResponseListener responseListener = null;
             try (Http2SolrClient.OutStream out = client.initOutStream(basePath, update.getRequest(),
@@ -248,7 +248,7 @@ public class ConcurrentUpdateHttp2SolrClient extends SolrClient {
             }
 
             Response response = responseListener.get(client.getIdleTimeout(), TimeUnit.MILLISECONDS);
-            CausynthHttp.response(response.getHeaders()::get, client);
+            CausymHttp.response(response.getHeaders()::get, client);
             rspBody = responseListener.getInputStream();
 
             int statusCode = response.getStatus();
@@ -294,7 +294,7 @@ public class ConcurrentUpdateHttp2SolrClient extends SolrClient {
             } catch (Exception e) {
               log.error("Error consuming and closing http response stream.", e);
             }
-            CausynthHttp.requestEnded(causynthRequest);
+            CausymHttp.requestEnded(causymRequest);
             notifyQueueAndRunnersIfEmptyQueue();
           }
         }

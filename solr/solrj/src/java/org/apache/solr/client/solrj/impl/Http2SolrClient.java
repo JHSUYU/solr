@@ -67,7 +67,7 @@ import org.apache.solr.common.params.SolrParams;
 import org.apache.solr.common.params.UpdateParams;
 import org.apache.solr.common.util.Base64;
 import org.apache.solr.common.util.ContentStream;
-import org.apache.solr.common.util.CausynthHttp;
+import org.apache.solr.common.util.CausymHttp;
 import org.apache.solr.common.util.ExecutorUtil;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.common.util.ObjectReleaseTracker;
@@ -375,8 +375,8 @@ public class Http2SolrClient extends SolrClient {
   public NamedList<Object> request(@SuppressWarnings({"rawtypes"})SolrRequest solrRequest,
                                       String collection,
                                       OnComplete onComplete) throws IOException, SolrServerException {
-    // GraphChecker: the request starts here, the client's invoke point.
-    long causynthRequest = CausynthHttp.requestStarting(solrRequest);
+    // Causym: the request starts here, the client's invoke point.
+    long causymRequest = CausymHttp.requestStarting(solrRequest);
     try {
       Request req = makeRequest(solrRequest, collection);
       final ResponseParser parser = solrRequest.getResponseParser() == null
@@ -444,7 +444,7 @@ public class Http2SolrClient extends SolrClient {
         }
       }
     } finally {
-      CausynthHttp.requestEnded(causynthRequest);
+      CausymHttp.requestEnded(causymRequest);
     }
   }
 
@@ -495,8 +495,8 @@ public class Http2SolrClient extends SolrClient {
         req.header(entry.getKey(), entry.getValue());
       }
     }
-    // GraphChecker: every request this client sends, sync, async or streamed.
-    CausynthHttp.request(this, CausynthHttp.verb(solrRequest), (name, value) -> req.header(name, value));
+    // Causym: every request this client sends, sync, async or streamed.
+    CausymHttp.request(this, CausymHttp.verb(solrRequest), (name, value) -> req.header(name, value));
   }
   
   private String changeV2RequestEndpoint(String basePath) throws MalformedURLException {
@@ -665,7 +665,7 @@ public class Http2SolrClient extends SolrClient {
                                                      String encoding,
                                                      final boolean isV2Api)
       throws SolrServerException {
-    CausynthHttp.response(response.getHeaders()::get, this);
+    CausymHttp.response(response.getHeaders()::get, this);
     boolean shouldClose = true;
     try {
       // handle some http level checks before trying to parse the response

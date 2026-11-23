@@ -37,7 +37,7 @@ import org.junit.Test;
  * <p>The cluster property is set first and every node is let see it, so
  * every read of it inside the test sees legacy mode.  The source collection
  * lives alone on the first node, the target alone on the second (the shape of
- * TestCausynthMigrateBufferLeak); two documents of route key a! are indexed
+ * TestCausymMigrateBufferLeak); two documents of route key a! are indexed
  * into the source and migrated to the target.  MIGRATE splits the key into a
  * temporary collection on the source leader's node and creates that
  * collection's second replica on the target leader's node with a core-admin
@@ -49,14 +49,14 @@ import org.junit.Test;
  *
  * <p>The collections are made through the Collections API: in the bug's own
  * world, where every read of legacyCloud (node and Overseer, all through
- * CausynthLegacyCloud) says non-legacy, CreateCollectionCmd names each core's
+ * CausymLegacyCloud) says non-legacy, CreateCollectionCmd names each core's
  * coreNodeName (the source, the target and MIGRATE's temporary collection), so
  * the first CREATE a node refuses is MIGRATE's bare one on the target node.</p>
  */
 @LuceneTestCase.Slow
-public class TestCausynthMigrateLegacy extends SolrCloudTestCase {
-  private static final String SOURCE = "causynthMigrateLegacy-source";
-  private static final String TARGET = "causynthMigrateLegacy-target";
+public class TestCausymMigrateLegacy extends SolrCloudTestCase {
+  private static final String SOURCE = "causymMigrateLegacy-source";
+  private static final String TARGET = "causymMigrateLegacy-target";
 
   @BeforeClass
   public static void setupCluster() throws Exception {
